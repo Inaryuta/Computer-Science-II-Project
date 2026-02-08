@@ -1,0 +1,26 @@
+# .gitignore
+# Entornos virtuales
+venv/
+env/
+.vscode/
+.idea/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# PyInstaller
+dist/
+build/
+*.spec
+
+# Archivos temporales
+*.log
+*.tmp
+*.bak
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Entornos específicos de Python
+.python-version
