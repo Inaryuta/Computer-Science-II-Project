@@ -1,6 +1,5 @@
 import json
 import os
-import random
 from datetime import datetime
 
 from PySide6.QtWidgets import (
@@ -13,7 +12,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont, QIntValidator
 
 
-# ---------- Manejador de archivos JSON ----------
+# ---------- Manejador de archivos JSON (reutilizado) ----------
 class ManejadorArchivos:
     @staticmethod
     def guardar_json(ruta, datos):
@@ -26,13 +25,9 @@ class ManejadorArchivos:
             return json.load(f)
 
 
-# ---------- Diálogo para ingresar una clave ----------
+# ---------- Diálogo para ingresar una clave (reutilizado) ----------
 class DialogoClave(QDialog):
     def __init__(self, longitud, titulo="Ingresar clave", modo="insertar", parent=None, mensaje=None):
-        """
-        longitud: número de dígitos requerido.
-        modo: "insertar", "buscar", "eliminar", "mensaje", "confirmar"
-        """
         super().__init__(parent)
         self.longitud = longitud
         self.modo = modo
@@ -72,7 +67,6 @@ class DialogoClave(QDialog):
         layout = QVBoxLayout(self)
 
         if modo in ("mensaje", "confirmar"):
-            # Mostrar solo un mensaje
             lbl_mensaje = QLabel(mensaje if mensaje else "")
             lbl_mensaje.setWordWrap(True)
             layout.addWidget(lbl_mensaje)
@@ -87,7 +81,6 @@ class DialogoClave(QDialog):
                 btn_ok.clicked.connect(self.accept)
                 layout.addWidget(btn_ok)
         else:
-            # Modo ingreso de clave
             lbl_info = QLabel(f"Ingrese una clave de {longitud} dígitos:")
             layout.addWidget(lbl_info)
 
@@ -98,7 +91,7 @@ class DialogoClave(QDialog):
             layout.addWidget(self.edit_clave)
 
             button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-            button_box.accepted.connect (self.validar_y_aceptar)
+            button_box.accepted.connect(self.validar_y_aceptar)
             button_box.rejected.connect(self.reject)
             layout.addWidget(button_box)
 
@@ -114,8 +107,8 @@ class DialogoClave(QDialog):
         return self.clave_ingresada
 
 
-# ---------- Ventana principal de Búsqueda Lineal ----------
-class BusquedaLinealWindow(QMainWindow):
+# ---------- Ventana principal de Búsqueda Binaria ----------
+class BusquedaBinariaWindow(QMainWindow):
     def __init__(self, volver_a_busquedas, volver_a_principal):
         super().__init__()
         self.volver_a_busquedas = volver_a_busquedas
@@ -123,19 +116,19 @@ class BusquedaLinealWindow(QMainWindow):
 
         # Atributos de la estructura
         self.capacidad = 0
-        self.digitos = 4          # valor por defecto
-        self.estructura = {}       # diccionario {indice: clave}
-        self.historial = []        # lista de acciones para deshacer
+        self.digitos = 4
+        self.estructura = []          # Lista de longitud capacidad, con valores o None
+        self.historial = []            # Lista de acciones para deshacer (tuplas)
 
         # Referencias a widgets de visualización
-        self.labels = []           # lista de QLabel que muestran las claves
-        self.indices_labels = []   # lista de QLabel que muestran los índices
-        self.indices_reales = []   # lista de índices reales (posición en el arreglo)
+        self.labels = []                # QLabel para valores
+        self.indices_labels = []        # QLabel para índices
+        self.indices_reales = []        # índices reales (siempre 0..capacidad-1 en vista)
 
         self.initUI()
 
     def initUI(self):
-        self.setWindowTitle("Búsqueda Lineal - Estructura")
+        self.setWindowTitle("Búsqueda Binaria - Estructura Ordenada")
         self.setGeometry(100, 50, 1200, 700)
         self.setStyleSheet("""
             QMainWindow {
@@ -201,7 +194,7 @@ class BusquedaLinealWindow(QMainWindow):
 
         header_layout.addStretch()
 
-        titulo = QLabel("BÚSQUEDA LINEAL")
+        titulo = QLabel("BÚSQUEDA BINARIA")
         titulo.setFont(QFont("Arial", 20, QFont.Bold))
         titulo.setStyleSheet("color: #003366;")
         header_layout.addWidget(titulo)
@@ -248,7 +241,6 @@ class BusquedaLinealWindow(QMainWindow):
         self.btn_eliminar_estructura = QPushButton("Eliminar estructura")
         self.btn_deshacer = QPushButton("Deshacer")
 
-        # Estilo adicional para estos botones
         for btn in [self.btn_crear, self.btn_insertar, self.btn_buscar,
                     self.btn_eliminar_clave, self.btn_guardar, self.btn_cargar,
                     self.btn_eliminar_estructura, self.btn_deshacer]:
@@ -290,23 +282,20 @@ class BusquedaLinealWindow(QMainWindow):
         self.btn_eliminar_estructura.clicked.connect(self.eliminar_estructura)
         self.btn_deshacer.clicked.connect(self.deshacer)
 
-        # Inicialmente deshabilitamos los botones que requieren estructura creada
+        # Inicialmente deshabilitamos botones que requieren estructura
         self.habilitar_botones_estructura(False)
 
     # ---------- Métodos auxiliares ----------
     def habilitar_botones_estructura(self, habilitar):
-        """Habilita/deshabilita botones que dependen de una estructura existente."""
         self.btn_insertar.setEnabled(habilitar)
         self.btn_buscar.setEnabled(habilitar)
         self.btn_eliminar_clave.setEnabled(habilitar)
         self.btn_guardar.setEnabled(habilitar)
         self.btn_eliminar_estructura.setEnabled(habilitar)
         self.btn_deshacer.setEnabled(habilitar)
-        # El botón cargar siempre está habilitado
         self.btn_cargar.setEnabled(True)
 
     def limpiar_vista(self):
-        """Elimina todos los widgets de visualización."""
         while self.contenedor_layout.count():
             item = self.contenedor_layout.takeAt(0)
             if item.widget():
@@ -318,16 +307,11 @@ class BusquedaLinealWindow(QMainWindow):
     def reconstruir_vista(self):
         """Reconstruye la visualización basada en self.estructura y self.capacidad."""
         self.limpiar_vista()
-
         if self.capacidad <= 0:
             return
 
-        # Determinar cuántas celdas mostrar (máximo 10 por fila)
-        # Para simplificar, mostraremos todas las celdas (hasta 100) en filas de 10
-        # Si es mayor, podríamos implementar paginación, pero por ahora mostramos todas.
-        # En este ejemplo, si capacidad > 100, solo mostramos primeras 100 para no saturar.
-        mostrar = min(self.capacidad, 100)  # límite visual
-
+        # Mostrar hasta 100 celdas para no saturar
+        mostrar = min(self.capacidad, 100)
         filas = (mostrar + 9) // 10
         for f in range(filas):
             inicio = f * 10
@@ -335,7 +319,6 @@ class BusquedaLinealWindow(QMainWindow):
             self._crear_fila(inicio, fin)
 
     def _crear_fila(self, inicio, fin):
-        """Crea una fila con las celdas desde inicio hasta fin-1."""
         fila_widget = QWidget()
         fila_widget.setStyleSheet("background: transparent;")
         fila_layout = QHBoxLayout(fila_widget)
@@ -349,7 +332,6 @@ class BusquedaLinealWindow(QMainWindow):
         self.contenedor_layout.addWidget(fila_widget, 0, Qt.AlignCenter)
 
     def _agregar_celda(self, layout, idx_real):
-        """Agrega una celda (bloque) para el índice real dado."""
         contenedor = QWidget()
         contenedor.setFixedWidth(80)
         contenedor.setFixedHeight(100)
@@ -357,7 +339,6 @@ class BusquedaLinealWindow(QMainWindow):
         vbox.setSpacing(2)
         vbox.setContentsMargins(0, 0, 0, 0)
 
-        # Cuadro de valor
         cuadro = QLabel("")
         cuadro.setAlignment(Qt.AlignCenter)
         cuadro.setFixedSize(80, 80)
@@ -372,7 +353,6 @@ class BusquedaLinealWindow(QMainWindow):
             }
         """)
 
-        # Etiqueta de índice
         numero = QLabel(str(idx_real + 1))
         numero.setAlignment(Qt.AlignCenter)
         numero.setFixedHeight(20)
@@ -389,10 +369,10 @@ class BusquedaLinealWindow(QMainWindow):
 
     def actualizar_vista(self):
         """Actualiza los valores mostrados según self.estructura."""
-        for i, idx_real in enumerate(self.indices_reales):
+        for i, idx in enumerate(self.indices_reales):
             lbl = self.labels[i]
-            valor = self.estructura.get(idx_real, "")
-            if valor:
+            valor = self.estructura[idx] if idx < len(self.estructura) else None
+            if valor is not None:
                 lbl.setText(str(valor))
                 lbl.setStyleSheet("""
                     QLabel {
@@ -418,9 +398,9 @@ class BusquedaLinealWindow(QMainWindow):
 
     def reset_estilos(self):
         """Restaura los estilos normales de todas las celdas."""
-        for i, lbl in enumerate(self.labels):
-            if self.estructura.get(self.indices_reales[i], ""):
-                lbl.setStyleSheet("""
+        for i, idx in enumerate(self.indices_reales):
+            if self.estructura[idx] is not None:
+                self.labels[i].setStyleSheet("""
                     QLabel {
                         background-color: #4d9de0;
                         border: 2px solid #1e6bb8;
@@ -431,7 +411,7 @@ class BusquedaLinealWindow(QMainWindow):
                     }
                 """)
             else:
-                lbl.setStyleSheet("""
+                self.labels[i].setStyleSheet("""
                     QLabel {
                         background-color: #99ccff;
                         border: 2px solid #4d9de0;
@@ -441,39 +421,77 @@ class BusquedaLinealWindow(QMainWindow):
                     }
                 """)
 
-    # ---------- Funcionalidades ----------
+    # ---------- Lógica de estructura ordenada ----------
+    def cantidad_ocupados(self):
+        """Retorna cuántos elementos no None hay en la estructura."""
+        return sum(1 for x in self.estructura if x is not None)
+
+    def buscar_posicion_insercion(self, clave):
+        """Retorna el índice donde debería insertarse la clave para mantener orden."""
+        # Convertir clave a entero para comparar
+        clave_int = int(clave)
+        ocupados = [x for x in self.estructura if x is not None]
+        # Búsqueda binaria sobre la lista de ocupados (valores)
+        izq, der = 0, len(ocupados) - 1
+        while izq <= der:
+            mid = (izq + der) // 2
+            if ocupados[mid] < clave_int:
+                izq = mid + 1
+            else:
+                der = mid - 1
+        # izq es la posición en la lista de ocupados donde debe ir
+        # Ahora necesitamos el índice real en self.estructura correspondiente a esa posición
+        # Dado que los ocupados están en las primeras posiciones (índices 0..k-1), la posición de inserción es izq
+        return izq
+
+    def insertar_en_posicion(self, clave, pos):
+        """Inserta la clave en la posición pos, desplazando elementos a la derecha."""
+        # Verificar si hay espacio
+        if self.cantidad_ocupados() >= self.capacidad:
+            return False
+        # Desplazar elementos desde el final hasta pos
+        for i in range(self.capacidad - 1, pos, -1):
+            self.estructura[i] = self.estructura[i-1]
+        self.estructura[pos] = int(clave)
+        return True
+
+    def eliminar_en_posicion(self, pos):
+        """Elimina el elemento en pos y desplaza a la izquierda."""
+        if pos < 0 or pos >= self.capacidad or self.estructura[pos] is None:
+            return False
+        for i in range(pos, self.capacidad - 1):
+            self.estructura[i] = self.estructura[i+1]
+        self.estructura[self.capacidad - 1] = None
+        return True
+
+    # ---------- Acciones de la interfaz ----------
     def crear_estructura(self):
-        """Crea una nueva estructura vacía con la capacidad y dígitos seleccionados."""
         n = int(self.rango_combo.currentText())
         capacidad = 10 ** n
         digitos = self.digitos_spin.value()
 
         self.capacidad = capacidad
         self.digitos = digitos
-        self.estructura = {}  # vacía
+        self.estructura = [None] * capacidad
         self.historial = []
 
         self.reconstruir_vista()
         self.actualizar_vista()
 
-        # Deshabilitar controles de creación
         self.rango_combo.setEnabled(False)
         self.digitos_spin.setEnabled(False)
         self.btn_crear.setEnabled(False)
 
-        # Habilitar botones de manipulación
         self.habilitar_botones_estructura(True)
 
         QMessageBox.information(self, "Éxito", f"Estructura creada con capacidad {capacidad}.")
 
     def insertar_clave(self):
-        """Inserta una clave en la primera posición libre."""
-        if not self.capacidad:
+        if self.capacidad == 0:
             QMessageBox.warning(self, "Error", "Primero debe crear la estructura.")
             return
 
-        # Verificar si hay espacio
-        if len(self.estructura) >= self.capacidad:
+        if self.cantidad_ocupados() >= self.capacidad:
             QMessageBox.warning(self, "Error", "La estructura está llena.")
             return
 
@@ -482,25 +500,25 @@ class BusquedaLinealWindow(QMainWindow):
             return
 
         clave = dlg.get_clave()
+        clave_int = int(clave)
 
-        # Validar que no esté repetida
-        if clave in self.estructura.values():
+        # Verificar que no esté repetida (la búsqueda binaria puede fallar si está repetida)
+        if clave_int in [x for x in self.estructura if x is not None]:
             QMessageBox.warning(self, "Clave duplicada", "Esa clave ya existe en la estructura.")
             return
 
-        # Buscar primera posición libre (menor índice no ocupado)
-        for i in range(self.capacidad):
-            if i not in self.estructura:
-                self.estructura[i] = clave
-                self.historial.append(("insertar", i, clave))
-                break
-
-        self.actualizar_vista()
-        QMessageBox.information(self, "Éxito", f"Clave {clave} insertada.")
+        # Determinar posición de inserción
+        pos = self.buscar_posicion_insercion(clave)
+        # Insertar
+        if self.insertar_en_posicion(clave, pos):
+            self.historial.append(("insertar", pos, clave_int))
+            self.actualizar_vista()
+            QMessageBox.information(self, "Éxito", f"Clave {clave} insertada en posición {pos+1}.")
+        else:
+            QMessageBox.critical(self, "Error", "No se pudo insertar (problema interno).")
 
     def buscar_clave(self):
-        """Busca una clave y resalta la celda donde se encuentra."""
-        if not self.capacidad:
+        if self.capacidad == 0:
             QMessageBox.warning(self, "Error", "Primero debe crear la estructura.")
             return
 
@@ -509,42 +527,46 @@ class BusquedaLinealWindow(QMainWindow):
             return
 
         clave = dlg.get_clave()
+        clave_int = int(clave)
 
-        # Búsqueda lineal
-        encontrado = None
-        for idx, val in self.estructura.items():
-            if val == clave:
-                encontrado = idx
-                break
+        # Búsqueda binaria sobre los valores ocupados (primeros k elementos)
+        ocupados = [x for x in self.estructura if x is not None]
+        izq, der = 0, len(ocupados) - 1
+        encontrado = False
+        pos_encontrada = -1
+        while izq <= der and not encontrado:
+            mid = (izq + der) // 2
+            if ocupados[mid] == clave_int:
+                encontrado = True
+                # Necesitamos el índice real en self.estructura (que es mid, porque los ocupados están en índices 0..k-1)
+                pos_encontrada = mid
+            elif ocupados[mid] < clave_int:
+                izq = mid + 1
+            else:
+                der = mid - 1
 
-        if encontrado is None:
+        if encontrado:
+            # Resaltar la celda correspondiente
+            self.reset_estilos()
+            if pos_encontrada < len(self.indices_reales):
+                self.labels[pos_encontrada].setStyleSheet("""
+                    QLabel {
+                        background-color: #2ecc71;
+                        border: 3px solid #27ae60;
+                        border-radius: 8px;
+                        font-size: 16px;
+                        font-weight: bold;
+                        color: white;
+                    }
+                """)
+                QMessageBox.information(self, "Resultado", f"Clave {clave} encontrada en la posición {pos_encontrada+1}.")
+            else:
+                QMessageBox.information(self, "Resultado", f"Clave {clave} encontrada en la posición {pos_encontrada+1}, pero no está visible.")
+        else:
             QMessageBox.information(self, "Resultado", f"La clave {clave} no se encuentra en la estructura.")
-            return
-
-        # Resaltar la celda encontrada
-        self.reset_estilos()
-        # Buscar la posición en la lista visual
-        try:
-            pos_visual = self.indices_reales.index(encontrado)
-            self.labels[pos_visual].setStyleSheet("""
-                QLabel {
-                    background-color: #2ecc71;
-                    border: 3px solid #27ae60;
-                    border-radius: 8px;
-                    font-size: 16px;
-                    font-weight: bold;
-                    color: white;
-                }
-            """)
-            QMessageBox.information(self, "Resultado", f"Clave {clave} encontrada en la posición {encontrado + 1}.")
-        except ValueError:
-            # El índice no está visible (por límite de visualización)
-            QMessageBox.information(self, "Resultado",
-                                    f"Clave {clave} encontrada en la posición {encontrado + 1}, pero no está visible actualmente.")
 
     def eliminar_clave(self):
-        """Elimina una clave de la estructura."""
-        if not self.capacidad:
+        if self.capacidad == 0:
             QMessageBox.warning(self, "Error", "Primero debe crear la estructura.")
             return
 
@@ -553,27 +575,36 @@ class BusquedaLinealWindow(QMainWindow):
             return
 
         clave = dlg.get_clave()
+        clave_int = int(clave)
 
-        # Buscar la clave
-        idx_eliminar = None
-        for idx, val in self.estructura.items():
-            if val == clave:
-                idx_eliminar = idx
+        # Buscar la clave (binaria)
+        ocupados = [x for x in self.estructura if x is not None]
+        izq, der = 0, len(ocupados) - 1
+        pos = -1
+        while izq <= der:
+            mid = (izq + der) // 2
+            if ocupados[mid] == clave_int:
+                pos = mid
                 break
+            elif ocupados[mid] < clave_int:
+                izq = mid + 1
+            else:
+                der = mid - 1
 
-        if idx_eliminar is None:
+        if pos == -1:
             QMessageBox.information(self, "Resultado", f"La clave {clave} no existe.")
             return
 
         # Eliminar
-        del self.estructura[idx_eliminar]
-        self.historial.append(("eliminar", idx_eliminar, clave))
-        self.actualizar_vista()
-        QMessageBox.information(self, "Éxito", f"Clave {clave} eliminada.")
+        if self.eliminar_en_posicion(pos):
+            self.historial.append(("eliminar", pos, clave_int))
+            self.actualizar_vista()
+            QMessageBox.information(self, "Éxito", f"Clave {clave} eliminada.")
+        else:
+            QMessageBox.critical(self, "Error", "No se pudo eliminar.")
 
     def guardar_estructura(self):
-        """Guarda la estructura actual en un archivo JSON."""
-        if not self.capacidad:
+        if self.capacidad == 0:
             QMessageBox.warning(self, "Error", "No hay estructura para guardar.")
             return
 
@@ -581,13 +612,11 @@ class BusquedaLinealWindow(QMainWindow):
             "rango": self.rango_combo.currentText(),
             "digitos": self.digitos,
             "capacidad": self.capacidad,
-            "claves": {str(k): v for k, v in self.estructura.items()}
+            "claves": [v for v in self.estructura if v is not None]  # guardar solo las ocupadas
         }
 
-        nombre_defecto = f"busqueda_lineal_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-        ruta, _ = QFileDialog.getSaveFileName(
-            self, "Guardar estructura", nombre_defecto, "JSON (*.json)"
-        )
+        nombre_defecto = f"busqueda_binaria_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        ruta, _ = QFileDialog.getSaveFileName(self, "Guardar estructura", nombre_defecto, "JSON (*.json)")
         if not ruta:
             return
         if not ruta.lower().endswith(".json"):
@@ -600,7 +629,6 @@ class BusquedaLinealWindow(QMainWindow):
             QMessageBox.critical(self, "Error", f"No se pudo guardar:\n{str(e)}")
 
     def cargar_estructura(self):
-        """Carga una estructura desde un archivo JSON."""
         ruta, _ = QFileDialog.getOpenFileName(self, "Seleccionar archivo JSON", "", "JSON (*.json)")
         if not ruta:
             return
@@ -611,97 +639,90 @@ class BusquedaLinealWindow(QMainWindow):
             QMessageBox.critical(self, "Error", f"No se pudo leer el archivo:\n{str(e)}")
             return
 
-        # Validar estructura del JSON
         if not all(k in datos for k in ("rango", "digitos", "capacidad", "claves")):
             QMessageBox.critical(self, "Error", "El archivo no tiene el formato esperado.")
             return
 
-        # Preguntar si ya hay una estructura actual
         if self.capacidad > 0:
-            resp = QMessageBox.question(
-                self, "Confirmar",
-                "Ya hay una estructura cargada. ¿Desea sobrescribirla?",
-                QMessageBox.Yes | QMessageBox.No
-            )
+            resp = QMessageBox.question(self, "Confirmar", "¿Sobrescribir estructura actual?", QMessageBox.Yes | QMessageBox.No)
             if resp == QMessageBox.No:
                 return
 
-        # Restaurar datos
+        # Restaurar
         self.rango_combo.setCurrentText(datos["rango"])
         self.digitos_spin.setValue(datos["digitos"])
         self.capacidad = datos["capacidad"]
         self.digitos = datos["digitos"]
-        # Convertir claves a enteros
-        self.estructura = {int(k): v for k, v in datos["claves"].items()}
+        # Reconstruir estructura: colocar las claves en las primeras posiciones
+        self.estructura = [None] * self.capacidad
+        claves_ordenadas = sorted(datos["claves"])  # por si acaso no vienen ordenadas
+        for i, val in enumerate(claves_ordenadas):
+            if i < self.capacidad:
+                self.estructura[i] = val
         self.historial = []
 
-        # Reconstruir vista
         self.reconstruir_vista()
         self.actualizar_vista()
 
-        # Bloquear controles de creación
         self.rango_combo.setEnabled(False)
         self.digitos_spin.setEnabled(False)
         self.btn_crear.setEnabled(False)
-
         self.habilitar_botones_estructura(True)
 
         QMessageBox.information(self, "Éxito", "Estructura cargada correctamente.")
 
     def eliminar_estructura(self):
-        """Elimina la estructura actual (vacía todo)."""
         if self.capacidad == 0:
             QMessageBox.warning(self, "Error", "No hay estructura para eliminar.")
             return
 
-        resp = QMessageBox.question(
-            self, "Confirmar",
-            "¿Está seguro de eliminar la estructura actual?",
-            QMessageBox.Yes | QMessageBox.No
-        )
+        resp = QMessageBox.question(self, "Confirmar", "¿Eliminar estructura actual?", QMessageBox.Yes | QMessageBox.No)
         if resp == QMessageBox.No:
             return
 
         self.capacidad = 0
-        self.estructura = {}
+        self.estructura = []
         self.historial = []
         self.limpiar_vista()
 
-        # Habilitar controles de creación
         self.rango_combo.setEnabled(True)
         self.digitos_spin.setEnabled(True)
         self.btn_crear.setEnabled(True)
-
         self.habilitar_botones_estructura(False)
 
         QMessageBox.information(self, "Éxito", "Estructura eliminada.")
 
     def deshacer(self):
-        """Deshace la última operación (insertar o eliminar)."""
         if not self.historial:
             QMessageBox.information(self, "Deshacer", "No hay acciones para deshacer.")
             return
 
         ultimo = self.historial.pop()
-        tipo, idx, clave = ultimo
+        tipo, pos, valor = ultimo
 
         if tipo == "insertar":
-            # Se insertó clave en idx; deshacer es eliminar
-            if idx in self.estructura and self.estructura[idx] == clave:
-                del self.estructura[idx]
+            # Deshacer inserción: eliminar en esa posición
+            self.eliminar_en_posicion(pos)
         elif tipo == "eliminar":
-            # Se eliminó clave de idx; deshacer es volver a insertar
-            self.estructura[idx] = clave
+            # Deshacer eliminación: insertar en esa posición (desplazando)
+            # Para simplificar, usamos el método de inserción pero debemos asegurar que la posición esté libre
+            # Como al eliminar se desplazaron, la posición pos ahora está libre y los elementos a la derecha se movieron a la izquierda.
+            # Para reinsertar, debemos desplazar a la derecha desde pos.
+            if self.cantidad_ocupados() >= self.capacidad:
+                QMessageBox.warning(self, "Error", "No se puede deshacer, estructura llena.")
+                self.historial.append(ultimo)  # devolver
+                return
+            for i in range(self.capacidad - 1, pos, -1):
+                self.estructura[i] = self.estructura[i-1]
+            self.estructura[pos] = valor
 
         self.actualizar_vista()
         QMessageBox.information(self, "Deshacer", "Última acción deshecha.")
 
     def ir_a_principal(self):
-        """Cierra y vuelve a la ventana principal."""
         self.close()
         self.volver_a_principal()
 
     def ir_a_busquedas(self):
-        """Cierra y vuelve al menú de búsquedas."""
         self.close()
         self.volver_a_busquedas()

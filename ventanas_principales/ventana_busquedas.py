@@ -1,46 +1,151 @@
-from PySide6.QtWidgets import QWidget, QPushButton, QVBoxLayout, QLabel
+from PySide6.QtWidgets import (
+    QWidget, QVBoxLayout, QLabel, QPushButton, QMenu, QMessageBox
+)
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QFont, QCursor
 
 class VentanaBusquedas(QWidget):
     def __init__(self, volver_a_principal):
         super().__init__()
         self.volver_a_principal = volver_a_principal
         self.initUI()
-    
+
     def initUI(self):
         self.setWindowTitle("Algoritmos de Búsqueda")
-        self.setGeometry(150, 150, 400, 300)
-        
-        layout = QVBoxLayout()
-        
-        label = QLabel("Seleccione un algoritmo:")
-        layout.addWidget(label)
-        
-        btn_lineal = QPushButton("Búsqueda Lineal")
-        btn_lineal.clicked.connect(self.abrir_lineal)
-        layout.addWidget(btn_lineal)
-        
-        btn_binaria = QPushButton("Búsqueda Binaria")
-        btn_binaria.setEnabled(False)
-        layout.addWidget(btn_binaria)
-        
-        btn_volver = QPushButton("← Volver")
-        btn_volver.clicked.connect(self.volver_a_principal)
-        layout.addWidget(btn_volver)
-        
-        self.setLayout(layout)
-    
+        self.setGeometry(150, 150, 500, 400)
+        self.setStyleSheet("""
+            QWidget {
+                background-color: #f0f8ff;
+            }
+            QLabel {
+                color: #003366;
+                font-size: 16px;
+            }
+            QPushButton {
+                background-color: #e6f2ff;
+                color: #003366;
+                font-size: 14px;
+                font-weight: bold;
+                border: 2px solid #99ccff;
+                border-radius: 8px;
+                padding: 12px;
+                min-height: 40px;
+            }
+            QPushButton:hover {
+                background-color: #cce6ff;
+                border: 2px solid #66a3ff;
+            }
+            QPushButton:pressed {
+                background-color: #b3d9ff;
+            }
+            QPushButton#boton_volver {
+                background-color: #ffdddd;
+                border: 2px solid #ff9999;
+            }
+            QPushButton#boton_volver:hover {
+                background-color: #ffcccc;
+            }
+            QMenu {
+                background-color: white;
+                border: 1px solid #99ccff;
+                border-radius: 5px;
+            }
+            QMenu::item {
+                padding: 8px 20px;
+                color: #003366;
+            }
+            QMenu::item:selected {
+                background-color: #cce6ff;
+            }
+        """)
+
+        layout = QVBoxLayout(self)
+        layout.setSpacing(20)
+        layout.setContentsMargins(30, 30, 30, 30)
+
+        # Título
+        titulo = QLabel("ALGORITMOS DE BÚSQUEDA")
+        titulo.setFont(QFont("Arial", 20, QFont.Bold))
+        titulo.setAlignment(Qt.AlignCenter)
+        titulo.setStyleSheet("color: #003366; margin-bottom: 20px;")
+        layout.addWidget(titulo)
+
+        # Botón Inicio (volver a principal)
+        self.btn_inicio = QPushButton("🏠  INICIO")
+        self.btn_inicio.setObjectName("boton_volver")
+        self.btn_inicio.setCursor(Qt.PointingHandCursor)
+        self.btn_inicio.clicked.connect(self.volver_a_principal_action)
+        layout.addWidget(self.btn_inicio)
+
+        # Botón Búsquedas Internas con menú desplegable
+        self.btn_internas = QPushButton("🔎  BÚSQUEDAS INTERNAS")
+        self.btn_internas.setCursor(Qt.PointingHandCursor)
+        self.btn_internas.clicked.connect(self.mostrar_menu_internas)
+        layout.addWidget(self.btn_internas)
+
+        # Crear menú para internas
+        self.menu_internas = QMenu()
+        self.menu_internas.setStyleSheet(self.styleSheet())  # hereda estilos
+
+        accion_lineal = self.menu_internas.addAction("Búsqueda Lineal")
+        accion_lineal.triggered.connect(self.abrir_lineal)
+        accion_binaria = self.menu_internas.addAction("Búsqueda Binaria")
+        accion_binaria.triggered.connect(self.abrir_binaria)
+        # Agregar más opciones cuando estén listas
+        accion_exponencial = self.menu_internas.addAction("Búsqueda Exponencial")
+        accion_exponencial.setEnabled(False)  # deshabilitada por ahora
+
+        # Botón Búsquedas Externas (placeholder)
+        self.btn_externas = QPushButton("🌐  BÚSQUEDAS EXTERNAS")
+        self.btn_externas.setCursor(Qt.PointingHandCursor)
+        self.btn_externas.clicked.connect(self.mostrar_mensaje_externas)
+        layout.addWidget(self.btn_externas)
+
+        # Botón Índices (placeholder)
+        self.btn_indices = QPushButton("📌  ÍNDICES")
+        self.btn_indices.setCursor(Qt.PointingHandCursor)
+        self.btn_indices.clicked.connect(self.mostrar_mensaje_indices)
+        layout.addWidget(self.btn_indices)
+
+        layout.addStretch()
+
+    def mostrar_menu_internas(self):
+        # Muestra el menú debajo del botón
+        self.menu_internas.exec(QCursor.pos())
+
     def abrir_lineal(self):
         try:
             from algoritmos.busqueda_lineal import BusquedaLinealWindow
-            self.ventana_lineal = BusquedaLinealWindow(self.mostrar_ventana_busquedas)
+            self.ventana_lineal = BusquedaLinealWindow(
+                self.mostrar_ventana_busquedas,
+                self.volver_a_principal
+            )
             self.ventana_lineal.show()
             self.hide()
         except ImportError:
-            from PySide6.QtWidgets import QMessageBox
             QMessageBox.information(self, "En desarrollo", "Búsqueda lineal en desarrollo")
-    
+
+    def abrir_binaria(self):
+        try:
+            from algoritmos.busqueda_binaria import BusquedaBinariaWindow
+            self.ventana_binaria = BusquedaBinariaWindow(
+                self.mostrar_ventana_busquedas,
+                self.volver_a_principal
+            )
+            self.ventana_binaria.show()
+            self.hide()
+        except ImportError as e:
+            QMessageBox.information(self, "En desarrollo", f"Búsqueda binaria en desarrollo. Error: {e}")
+
+    def mostrar_mensaje_externas(self):
+        QMessageBox.information(self, "Información", "Módulo de búsquedas externas en desarrollo")
+
+    def mostrar_mensaje_indices(self):
+        QMessageBox.information(self, "Información", "Módulo de índices en desarrollo")
+
     def mostrar_ventana_busquedas(self):
         self.show()
-    
-    def volver_a_principal(self):
+        
+    def volver_a_principal_action(self):
+        self.close()
         self.volver_a_principal()
