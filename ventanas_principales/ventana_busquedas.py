@@ -91,9 +91,21 @@ class VentanaBusquedas(QWidget):
         accion_lineal.triggered.connect(self.abrir_lineal)
         accion_binaria = self.menu_internas.addAction("Búsqueda Binaria")
         accion_binaria.triggered.connect(self.abrir_binaria)
-        # Agregar más opciones cuando estén listas
-        accion_exponencial = self.menu_internas.addAction("Búsqueda Exponencial")
-        accion_exponencial.setEnabled(False)  # deshabilitada por ahora
+        
+        # Submenú para funciones hash
+        self.menu_hash = QMenu("Funciones Hash", self.menu_internas)
+        self.menu_hash.setStyleSheet(self.styleSheet())
+
+        accion_mod = self.menu_hash.addAction("Módulo")
+        accion_mod.triggered.connect(self.abrir_mod)
+        accion_cuadrado = self.menu_hash.addAction("Cuadrado")
+        accion_cuadrado.triggered.connect(lambda: self.mostrar_en_desarrollo("Cuadrado"))
+        accion_truncamiento = self.menu_hash.addAction("Truncamiento")
+        accion_truncamiento.triggered.connect(lambda: self.mostrar_en_desarrollo("Truncamiento"))
+        accion_plegamiento = self.menu_hash.addAction("Plegamiento")
+        accion_plegamiento.triggered.connect(lambda: self.mostrar_en_desarrollo("Plegamiento"))
+
+        self.menu_internas.addMenu(self.menu_hash)
 
         # Botón Búsquedas Externas (placeholder)
         self.btn_externas = QPushButton("🌐  BÚSQUEDAS EXTERNAS")
@@ -136,6 +148,21 @@ class VentanaBusquedas(QWidget):
             self.hide()
         except ImportError as e:
             QMessageBox.information(self, "En desarrollo", f"Búsqueda binaria en desarrollo. Error: {e}")
+            
+    def abrir_mod(self):
+        try:
+            from algoritmos.funcion_mod import FuncionModWindow
+            self.ventana_mod = FuncionModWindow(
+                self.mostrar_ventana_busquedas,
+                self.volver_a_principal
+            )
+            self.ventana_mod.show()
+            self.hide()
+        except ImportError as e:
+            QMessageBox.information(self, "En desarrollo", f"Función Módulo en desarrollo. Error: {e}")
+
+    def mostrar_en_desarrollo(self, nombre):
+        QMessageBox.information(self, "En desarrollo", f"{nombre} estará disponible próximamente.")
 
     def mostrar_mensaje_externas(self):
         QMessageBox.information(self, "Información", "Módulo de búsquedas externas en desarrollo")
