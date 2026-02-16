@@ -306,73 +306,80 @@ class BusquedaLinealWindow(QMainWindow):
         self.btn_cargar.setEnabled(True)
 
     def limpiar_vista(self):
-        """Elimina todos los widgets de visualización."""
         while self.contenedor_layout.count():
             item = self.contenedor_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
+            elif item.layout():
+                # Si hay un layout, eliminamos sus widgets también
+                self._eliminar_layout(item.layout())
         self.labels.clear()
         self.indices_labels.clear()
         self.indices_reales.clear()
 
-    def reconstruir_vista(self):
-        """Reconstruye la visualización basada en self.estructura y self.capacidad."""
-        self.limpiar_vista()
+    def _eliminar_layout(self, layout):
+        while layout.count():
+            item = layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+            elif item.layout():
+                self._eliminar_layout(item.layout())
 
+    # Constante para el número de columnas
+    COLUMNAS = 10
+    MAX_CELDAS_VISIBLES = 200  # Mostrar hasta 200 celdas (20 filas)
+
+    def reconstruir_vista(self):
+        """Reconstruye la visualización usando un grid layout."""
+        self.limpiar_vista()
         if self.capacidad <= 0:
             return
 
-        # Determinar cuántas celdas mostrar (máximo 10 por fila)
-        # Para simplificar, mostraremos todas las celdas (hasta 100) en filas de 10
-        # Si es mayor, podríamos implementar paginación, pero por ahora mostramos todas.
-        # En este ejemplo, si capacidad > 100, solo mostramos primeras 100 para no saturar.
-        mostrar = min(self.capacidad, 100)  # límite visual
+        # Crear un QGridLayout para colocar las celdas en filas y columnas
+        self.grid_layout = QGridLayout()
+        self.grid_layout.setSpacing(0)
+        self.grid_layout.setContentsMargins(0, 0, 0, 0)
+        self.contenedor_layout.addLayout(self.grid_layout)
 
-        filas = (mostrar + 9) // 10
-        for f in range(filas):
-            inicio = f * 10
-            fin = min(inicio + 10, mostrar)
-            self._crear_fila(inicio, fin)
+        # Determinar cuántas celdas mostrar (limitado por rendimiento)
+        mostrar = min(self.capacidad, self.MAX_CELDAS_VISIBLES)
 
-    def _crear_fila(self, inicio, fin):
-        """Crea una fila con las celdas desde inicio hasta fin-1."""
-        fila_widget = QWidget()
-        fila_widget.setStyleSheet("background: transparent;")
-        fila_layout = QHBoxLayout(fila_widget)
-        fila_layout.setSpacing(5)
-        fila_layout.setContentsMargins(0, 0, 0, 0)
-        fila_layout.setAlignment(Qt.AlignCenter)
+        for idx in range(mostrar):
+            fila = idx // self.COLUMNAS
+            columna = idx % self.COLUMNAS
+            celda = self._crear_celda(idx)
+            self.grid_layout.addWidget(celda, fila, columna)
 
-        for idx in range(inicio, fin):
-            self._agregar_celda(fila_layout, idx)
+        # Si la capacidad es mayor que el límite, mostrar un mensaje
+        if self.capacidad > self.MAX_CELDAS_VISIBLES:
+            lbl_aviso = QLabel(f"(Mostrando las primeras {self.MAX_CELDAS_VISIBLES} de {self.capacidad} celdas)")
+            lbl_aviso.setAlignment(Qt.AlignCenter)
+            lbl_aviso.setStyleSheet("color: #336699; font-style: italic; margin-top: 10px;")
+            self.contenedor_layout.addWidget(lbl_aviso)
 
-        self.contenedor_layout.addWidget(fila_widget, 0, Qt.AlignCenter)
-
-    def _agregar_celda(self, layout, idx_real):
-        """Agrega una celda (bloque) para el índice real dado."""
+    def _crear_celda(self, idx_real):
+        """Crea y retorna un widget contenedor para la celda en el índice real dado."""
         contenedor = QWidget()
-        contenedor.setFixedWidth(80)
-        contenedor.setFixedHeight(100)
+        contenedor.setFixedSize(80, 100)  # Ancho y alto fijo
         vbox = QVBoxLayout(contenedor)
         vbox.setSpacing(2)
         vbox.setContentsMargins(0, 0, 0, 0)
 
-        # Cuadro de valor
+        # Cuadro que muestra el valor
         cuadro = QLabel("")
         cuadro.setAlignment(Qt.AlignCenter)
         cuadro.setFixedSize(80, 80)
         cuadro.setStyleSheet("""
             QLabel {
                 background-color: #99ccff;
-                border: 2px solid #4d9de0;
-                border-radius: 8px;
+                border: 1px solid #4d9de0;
                 font-size: 16px;
                 font-weight: bold;
                 color: #003366;
             }
         """)
 
-        # Etiqueta de índice
+        # Etiqueta con el número de índice (1-based)
         numero = QLabel(str(idx_real + 1))
         numero.setAlignment(Qt.AlignCenter)
         numero.setFixedHeight(20)
@@ -381,11 +388,12 @@ class BusquedaLinealWindow(QMainWindow):
         vbox.addWidget(cuadro)
         vbox.addWidget(numero)
 
-        layout.addWidget(contenedor)
-
+        # Guardar referencias para actualizaciones posteriores
         self.labels.append(cuadro)
         self.indices_labels.append(numero)
         self.indices_reales.append(idx_real)
+
+        return contenedor
 
     def actualizar_vista(self):
         """Actualiza los valores mostrados según self.estructura."""

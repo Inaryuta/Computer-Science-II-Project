@@ -106,7 +106,6 @@ class DialogoClave(QDialog):
     def get_clave(self):
         return self.clave_ingresada
 
-
 # ---------- Ventana principal de Búsqueda Binaria ----------
 class BusquedaBinariaWindow(QMainWindow):
     def __init__(self, volver_a_busquedas, volver_a_principal):
@@ -126,6 +125,9 @@ class BusquedaBinariaWindow(QMainWindow):
         self.indices_reales = []        # índices reales (siempre 0..capacidad-1 en vista)
 
         self.initUI()
+        
+    COLUMNAS = 10
+    MAX_CELDAS_VISIBLES = 200
 
     def initUI(self):
         self.setWindowTitle("Búsqueda Binaria - Estructura Ordenada")
@@ -300,23 +302,45 @@ class BusquedaBinariaWindow(QMainWindow):
             item = self.contenedor_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
+            elif item.layout():
+                self._eliminar_layout(item.layout())
         self.labels.clear()
         self.indices_labels.clear()
         self.indices_reales.clear()
+        if hasattr(self, 'grid_layout'):
+            del self.grid_layout
+    
+    def _eliminar_layout(self, layout):
+        while layout.count():
+            item = layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+            elif item.layout():
+                self._eliminar_layout(item.layout())
 
     def reconstruir_vista(self):
-        """Reconstruye la visualización basada en self.estructura y self.capacidad."""
         self.limpiar_vista()
         if self.capacidad <= 0:
             return
 
-        # Mostrar hasta 100 celdas para no saturar
-        mostrar = min(self.capacidad, 100)
-        filas = (mostrar + 9) // 10
-        for f in range(filas):
-            inicio = f * 10
-            fin = min(inicio + 10, mostrar)
-            self._crear_fila(inicio, fin)
+        self.grid_layout = QGridLayout()
+        self.grid_layout.setSpacing(0)
+        self.grid_layout.setContentsMargins(0, 0, 0, 0)
+        self.contenedor_layout.addLayout(self.grid_layout)
+
+        mostrar = min(self.capacidad, self.MAX_CELDAS_VISIBLES)
+
+        for idx in range(mostrar):
+            fila = idx // self.COLUMNAS
+            columna = idx % self.COLUMNAS
+            celda = self._crear_celda(idx)
+            self.grid_layout.addWidget(celda, fila, columna)
+
+        if self.capacidad > self.MAX_CELDAS_VISIBLES:
+            lbl_aviso = QLabel(f"(Mostrando las primeras {self.MAX_CELDAS_VISIBLES} de {self.capacidad} celdas)")
+            lbl_aviso.setAlignment(Qt.AlignCenter)
+            lbl_aviso.setStyleSheet("color: #336699; font-style: italic; margin-top: 10px;")
+            self.contenedor_layout.addWidget(lbl_aviso)
 
     def _crear_fila(self, inicio, fin):
         fila_widget = QWidget()
@@ -331,10 +355,9 @@ class BusquedaBinariaWindow(QMainWindow):
 
         self.contenedor_layout.addWidget(fila_widget, 0, Qt.AlignCenter)
 
-    def _agregar_celda(self, layout, idx_real):
+    def _crear_celda(self, idx_real):
         contenedor = QWidget()
-        contenedor.setFixedWidth(80)
-        contenedor.setFixedHeight(100)
+        contenedor.setFixedSize(80, 100)
         vbox = QVBoxLayout(contenedor)
         vbox.setSpacing(2)
         vbox.setContentsMargins(0, 0, 0, 0)
@@ -345,8 +368,7 @@ class BusquedaBinariaWindow(QMainWindow):
         cuadro.setStyleSheet("""
             QLabel {
                 background-color: #99ccff;
-                border: 2px solid #4d9de0;
-                border-radius: 8px;
+                border: 1px solid #4d9de0;
                 font-size: 16px;
                 font-weight: bold;
                 color: #003366;
@@ -361,11 +383,11 @@ class BusquedaBinariaWindow(QMainWindow):
         vbox.addWidget(cuadro)
         vbox.addWidget(numero)
 
-        layout.addWidget(contenedor)
-
         self.labels.append(cuadro)
         self.indices_labels.append(numero)
         self.indices_reales.append(idx_real)
+
+        return contenedor
 
     def actualizar_vista(self):
         """Actualiza los valores mostrados según self.estructura."""
