@@ -101,7 +101,7 @@ class VentanaBusquedas(QWidget):
         accion_cuadrado = self.menu_hash.addAction("Cuadrado")
         accion_cuadrado.triggered.connect(self.abrir_cuadrado)
         accion_truncamiento = self.menu_hash.addAction("Truncamiento")
-        accion_truncamiento.triggered.connect(lambda: self.mostrar_en_desarrollo("Truncamiento"))
+        accion_truncamiento.triggered.connect(self.abrir_truncamiento)
         accion_plegamiento = self.menu_hash.addAction("Plegamiento")
         accion_plegamiento.triggered.connect(lambda: self.mostrar_en_desarrollo("Plegamiento"))
 
@@ -172,6 +172,18 @@ class VentanaBusquedas(QWidget):
             self.hide()
         except ImportError as e:
             QMessageBox.information(self, "En desarrollo", f"Función Cuadrado en desarrollo. Error: {e}")
+    
+    def abrir_truncamiento(self):
+        try:
+            from algoritmos.funcion_truncamiento import FuncionTruncamientoWindow
+            self.ventana_truncamiento = FuncionTruncamientoWindow(
+                self.mostrar_ventana_busquedas,
+                self.volver_a_principal
+            )
+            self.ventana_truncamiento.show()
+            self.hide()
+        except ImportError as e:
+            QMessageBox.information(self, "En desarrollo", f"Función Truncamiento en desarrollo. Error: {e}")
 
     def mostrar_en_desarrollo(self, nombre):
         QMessageBox.information(self, "En desarrollo", f"{nombre} estará disponible próximamente.")
