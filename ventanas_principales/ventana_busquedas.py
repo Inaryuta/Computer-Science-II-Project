@@ -104,7 +104,20 @@ class VentanaBusquedas(QWidget):
         accion_truncamiento.triggered.connect(self.abrir_truncamiento)
         accion_plegamiento = self.menu_hash.addAction("Plegamiento")
         accion_plegamiento.triggered.connect(self.abrir_plegamiento)
+        
+        self.menu_arboles = QMenu("Árboles", self.menu_internas)
+        self.menu_arboles.setStyleSheet(self.styleSheet())
 
+        accion_digitales = self.menu_arboles.addAction("Digitales")
+        accion_digitales.triggered.connect(self.abrir_arboles_digitales)
+        accion_residuos = self.menu_arboles.addAction("De Residuos")
+        accion_residuos.triggered.connect(lambda: self.mostrar_en_desarrollo("Árboles de Residuos"))
+        accion_multiresiduos = self.menu_arboles.addAction("Múltiples Residuos")
+        accion_multiresiduos.triggered.connect(lambda: self.mostrar_en_desarrollo("Árboles de Múltiples Residuos"))
+        accion_huffman = self.menu_arboles.addAction("Huffman")
+        accion_huffman.triggered.connect(lambda: self.mostrar_en_desarrollo("Árbol de Huffman"))
+
+        self.menu_internas.addMenu(self.menu_arboles)
         self.menu_internas.addMenu(self.menu_hash)
 
         # Botón Búsquedas Externas (placeholder)
@@ -196,6 +209,18 @@ class VentanaBusquedas(QWidget):
             self.hide()
         except ImportError as e:
             QMessageBox.information(self, "En desarrollo", f"Función Plegamiento en desarrollo. Error: {e}")
+
+    def abrir_arboles_digitales(self):
+        try:
+            from algoritmos.arboles_digitales import ArbolesDigitalesWindow
+            self.ventana_arboles = ArbolesDigitalesWindow(
+                self.mostrar_ventana_busquedas,
+                self.volver_a_principal
+            )
+            self.ventana_arboles.show()
+            self.hide()
+        except ImportError as e:
+            QMessageBox.information(self, "En desarrollo", f"Árboles Digitales en desarrollo. Error: {e}")
 
     def mostrar_en_desarrollo(self, nombre):
         QMessageBox.information(self, "En desarrollo", f"{nombre} estará disponible próximamente.")
