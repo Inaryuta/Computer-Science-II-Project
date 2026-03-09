@@ -111,11 +111,12 @@ class VentanaBusquedas(QWidget):
         accion_digitales = self.menu_arboles.addAction("Digitales")
         accion_digitales.triggered.connect(self.abrir_arboles_digitales)
         accion_residuos = self.menu_arboles.addAction("De Residuos")
-        accion_residuos.triggered.connect(lambda: self.mostrar_en_desarrollo("Árboles de Residuos"))
+        accion_residuos.triggered.connect(self.abrir_arboles_residuos)
         accion_multiresiduos = self.menu_arboles.addAction("Múltiples Residuos")
-        accion_multiresiduos.triggered.connect(lambda: self.mostrar_en_desarrollo("Árboles de Múltiples Residuos"))
+        accion_multiresiduos.triggered.connect(self.abrir_arboles_multiresiduos)
         accion_huffman = self.menu_arboles.addAction("Huffman")
-        accion_huffman.triggered.connect(lambda: self.mostrar_en_desarrollo("Árbol de Huffman"))
+        accion_huffman.triggered.connect(self.abrir_arboles_huffman)
+        
 
         self.menu_internas.addMenu(self.menu_arboles)
         self.menu_internas.addMenu(self.menu_hash)
@@ -222,6 +223,42 @@ class VentanaBusquedas(QWidget):
         except ImportError as e:
             QMessageBox.information(self, "En desarrollo", f"Árboles Digitales en desarrollo. Error: {e}")
 
+    def abrir_arboles_residuos(self):
+        try:
+            from algoritmos.arboles_residuos import ArbolesResiduosWindow
+            self.ventana_residuos = ArbolesResiduosWindow(
+                self.mostrar_ventana_busquedas,
+                self.volver_a_principal
+            )
+            self.ventana_residuos.show()
+            self.hide()
+        except ImportError as e:
+            QMessageBox.information(self, "En desarrollo", f"Árboles de Residuos en desarrollo. Error: {e}")
+    
+    def abrir_arboles_multiresiduos(self):
+        try:
+            from algoritmos.arboles_multiresiduos import ArbolesMultiResiduosWindow
+            self.ventana_multiresiduos = ArbolesMultiResiduosWindow(
+                self.mostrar_ventana_busquedas,
+                self.volver_a_principal
+            )
+            self.ventana_multiresiduos.show()
+            self.hide()
+        except ImportError as e:
+            QMessageBox.information(self, "En desarrollo", f"Árboles de Múltiples Residuos en desarrollo. Error: {e}")
+    
+    def abrir_arboles_huffman(self):
+        try:
+            from algoritmos.arboles_huffman import ArbolesHuffmanWindow
+            self.ventana_huffman = ArbolesHuffmanWindow(
+                self.mostrar_ventana_busquedas,
+                self.volver_a_principal
+            )
+            self.ventana_huffman.show()
+            self.hide()
+        except ImportError as e:
+            QMessageBox.information(self, "En desarrollo", f"Árbol de Huffman en desarrollo. Error: {e}")
+    
     def mostrar_en_desarrollo(self, nombre):
         QMessageBox.information(self, "En desarrollo", f"{nombre} estará disponible próximamente.")
 
