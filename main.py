@@ -19,6 +19,6 @@ try:
     sys.exit(app.exec())
 
 except ImportError as e:
-    print(f"❌ Error: {e}")
-    print("\n💡 Ejecuta: pip install PySide6")
+    print(f"Error: {e}")
+    print("\n Ejecuta: pip install PySide6")
     input("Presiona Enter para salir...")

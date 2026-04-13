@@ -1,6 +1,9 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton
+# ventanas_principales/ventana_grafos.py
+from PySide6.QtWidgets import (
+    QWidget, QVBoxLayout, QLabel, QPushButton, QMenu, QMessageBox
+)
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QCursor
 
 class VentanaGrafos(QWidget):
     def __init__(self, volver_a_principal):
@@ -10,7 +13,7 @@ class VentanaGrafos(QWidget):
 
     def initUI(self):
         self.setWindowTitle("Algoritmos de Grafos")
-        self.setGeometry(150, 150, 500, 300)
+        self.setGeometry(150, 150, 550, 500)
         self.setStyleSheet("""
             QWidget {
                 background-color: #f0f8ff;
@@ -43,32 +46,143 @@ class VentanaGrafos(QWidget):
             QPushButton#boton_volver:hover {
                 background-color: #ffcccc;
             }
+            QMenu {
+                background-color: white;
+                border: 1px solid #99ccff;
+                border-radius: 5px;
+            }
+            QMenu::item {
+                padding: 8px 20px;
+                color: #003366;
+            }
+            QMenu::item:selected {
+                background-color: #cce6ff;
+            }
         """)
 
         layout = QVBoxLayout(self)
-        layout.setSpacing(30)
+        layout.setSpacing(20)
         layout.setContentsMargins(30, 30, 30, 30)
 
+        # Título
         titulo = QLabel("ALGORITMOS DE GRAFOS")
         titulo.setFont(QFont("Arial", 20, QFont.Bold))
         titulo.setAlignment(Qt.AlignCenter)
         titulo.setStyleSheet("color: #003366; margin-bottom: 20px;")
         layout.addWidget(titulo)
 
+        # Botón Inicio
         self.btn_inicio = QPushButton("🏠  INICIO")
         self.btn_inicio.setObjectName("boton_volver")
         self.btn_inicio.setCursor(Qt.PointingHandCursor)
         self.btn_inicio.clicked.connect(self.volver_a_principal_action)
         layout.addWidget(self.btn_inicio)
 
+        # Botón Operaciones entre grafos
+        self.btn_operaciones = QPushButton("📊  OPERACIONES ENTRE GRAFOS")
+        self.btn_operaciones.setCursor(Qt.PointingHandCursor)
+        self.btn_operaciones.clicked.connect(self.mostrar_menu_operaciones)
+        layout.addWidget(self.btn_operaciones)
+
+        # Botón Grafos como árboles
+        self.btn_arboles = QPushButton("🌳  GRAFOS COMO ÁRBOLES")
+        self.btn_arboles.setCursor(Qt.PointingHandCursor)
+        self.btn_arboles.clicked.connect(self.mostrar_menu_arboles)
+        layout.addWidget(self.btn_arboles)
+
+        # Botón Algoritmos
+        self.btn_algoritmos = QPushButton("⚙️  ALGORITMOS")
+        self.btn_algoritmos.setCursor(Qt.PointingHandCursor)
+        self.btn_algoritmos.clicked.connect(self.mostrar_menu_algoritmos)
+        layout.addWidget(self.btn_algoritmos)
+
         layout.addStretch()
 
-        # Mensaje informativo
-        info = QLabel("(Próximamente más algoritmos)")
-        info.setAlignment(Qt.AlignCenter)
-        info.setStyleSheet("color: #6699cc; font-style: italic;")
-        layout.addWidget(info)
+        # Crear menús
+        self.menu_operaciones = QMenu()
+        self.menu_operaciones.setStyleSheet(self.styleSheet())
+        self.menu_arboles = QMenu()
+        self.menu_arboles.setStyleSheet(self.styleSheet())
+        self.menu_algoritmos = QMenu()
+        self.menu_algoritmos.setStyleSheet(self.styleSheet())
+
+        # Llenar menú de operaciones
+        operaciones = [
+            "Intersección", "Unión", "Suma de anillo", "Suma",
+            "Fusión de vértice", "Contracción de arista", "Grafo línea",
+            "Grafo complementario", "Producto cartesiano",
+            "Producto tensorial", "Composición de grafos"
+        ]
+        for op in operaciones:
+            accion = self.menu_operaciones.addAction(op)
+            accion.triggered.connect(lambda checked, nombre=op: self.abrir_operacion(nombre))
+
+        # Llenar menú de árboles
+        arboles = [
+            "Árbol expansión mínima", "Árbol expansión máxima",
+            "Árbol expansión central", "Distancia entre dos árboles"
+        ]
+        for ar in arboles:
+            accion = self.menu_arboles.addAction(ar)
+            accion.triggered.connect(lambda checked, nombre=ar: self.abrir_operacion(nombre))
+
+        # Llenar menú de algoritmos
+        algoritmos = ["Bellman-Ford", "Dijkstra", "Floyd-Warshall"]
+        for alg in algoritmos:
+            accion = self.menu_algoritmos.addAction(alg)
+            accion.triggered.connect(lambda checked, nombre=alg: self.abrir_operacion(nombre))
+
+    def mostrar_menu_operaciones(self):
+        self.menu_operaciones.exec(QCursor.pos())
+
+    def mostrar_menu_arboles(self):
+        self.menu_arboles.exec(QCursor.pos())
+
+    def mostrar_menu_algoritmos(self):
+        self.menu_algoritmos.exec(QCursor.pos())
+
+    def abrir_operacion(self, nombre):
+        if nombre == "Intersección":
+            from algoritmos.grafos.interseccion_grafos import InterseccionGrafosWindow
+            self.ventana_interseccion = InterseccionGrafosWindow(
+                self.mostrar_ventana_grafos,
+                self.volver_a_principal
+            )
+            self.ventana_interseccion.show()
+            self.hide()
         
+        elif nombre == "Unión":
+            from algoritmos.grafos.union_grafos import UnionGrafosWindow
+            self.ventana_operacion = UnionGrafosWindow(self.mostrar_ventana_grafos, self.volver_a_principal)
+            self.ventana_operacion.show()
+            self.hide()
+            
+        elif nombre == "Suma de anillo":
+            from algoritmos.grafos.suma_anillo import SumaAnilloGrafosWindow
+            self.ventana_operacion = SumaAnilloGrafosWindow(self.mostrar_ventana_grafos, self.volver_a_principal)
+            self.ventana_operacion.show()
+            self.hide()
+        
+        elif nombre == "Suma":
+            from algoritmos.grafos.suma_grafos import SumaGrafosWindow
+            self.ventana_operacion = SumaGrafosWindow(self.mostrar_ventana_grafos, self.volver_a_principal)
+            self.ventana_operacion.show()
+            self.hide()
+        
+        elif nombre == "Dijkstra":
+            from algoritmos.grafos.dijkstra import DijkstraWindow
+            self.ventana_dijkstra = DijkstraWindow(
+                self.mostrar_ventana_grafos,
+                self.volver_a_principal
+            )
+            self.ventana_dijkstra.show()
+            self.hide()
+        else:
+            QMessageBox.information(self, "En desarrollo", f"La operación '{nombre}' estará disponible próximamente.")
+        
+    def mostrar_ventana_grafos(self):
+        self.show()
+
     def volver_a_principal_action(self):
         self.close()
         self.volver_a_principal()
