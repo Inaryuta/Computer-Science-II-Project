@@ -169,6 +169,48 @@ class VentanaGrafos(QWidget):
             self.ventana_operacion.show()
             self.hide()
         
+        elif nombre == "Fusión de vértice":
+            from algoritmos.grafos.fusion_vertice import FusionVerticeWindow
+            self.ventana_operacion = FusionVerticeWindow(self.mostrar_ventana_grafos, self.volver_a_principal)
+            self.ventana_operacion.show()
+            self.hide()
+        
+        elif nombre == "Contracción de arista":
+            from algoritmos.grafos.contraccion_arista import ContraccionAristaWindow
+            self.ventana_operacion = ContraccionAristaWindow(self.mostrar_ventana_grafos, self.volver_a_principal)
+            self.ventana_operacion.show()
+            self.hide()
+        
+        elif nombre == "Grafo línea":
+            from algoritmos.grafos.grafo_linea import GrafoLineaWindow
+            self.ventana_operacion = GrafoLineaWindow(self.mostrar_ventana_grafos, self.volver_a_principal)
+            self.ventana_operacion.show()
+            self.hide()
+        
+        elif nombre == "Grafo complementario":
+            from algoritmos.grafos.grafo_complementario import GrafoComplementarioWindow
+            self.ventana_operacion = GrafoComplementarioWindow(self.mostrar_ventana_grafos, self.volver_a_principal)
+            self.ventana_operacion.show()
+            self.hide()
+        
+        elif nombre == "Producto cartesiano":
+            from algoritmos.grafos.producto_cartesiano import ProductoCartesianoWindow
+            self.ventana_operacion = ProductoCartesianoWindow(self.mostrar_ventana_grafos, self.volver_a_principal)
+            self.ventana_operacion.show()
+            self.hide()
+            
+        elif nombre == "Producto tensorial":
+            from algoritmos.grafos.producto_tensorial import ProductoTensorialWindow
+            self.ventana_operacion = ProductoTensorialWindow(self.mostrar_ventana_grafos, self.volver_a_principal)
+            self.ventana_operacion.show()
+            self.hide()
+            
+        elif nombre == "Composición de grafos":
+            from algoritmos.grafos.composicion_grafos import ComposicionGrafosWindow
+            self.ventana_operacion = ComposicionGrafosWindow(self.mostrar_ventana_grafos, self.volver_a_principal)
+            self.ventana_operacion.show()
+            self.hide()
+        
         elif nombre == "Dijkstra":
             from algoritmos.grafos.dijkstra import DijkstraWindow
             self.ventana_dijkstra = DijkstraWindow(
