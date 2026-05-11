@@ -211,6 +211,12 @@ class VentanaGrafos(QWidget):
             self.ventana_operacion.show()
             self.hide()
         
+        elif nombre == "Bellman-Ford":
+            from algoritmos.grafos.bellman_ford import BellmanFordWindow
+            self.ventana_operacion = BellmanFordWindow(self.mostrar_ventana_grafos, self.volver_a_principal)
+            self.ventana_operacion.show()
+            self.hide()
+        
         elif nombre == "Dijkstra":
             from algoritmos.grafos.dijkstra import DijkstraWindow
             self.ventana_dijkstra = DijkstraWindow(
@@ -219,6 +225,13 @@ class VentanaGrafos(QWidget):
             )
             self.ventana_dijkstra.show()
             self.hide()
+        
+        elif nombre == "Floyd-Warshall":
+            from algoritmos.grafos.floyd import FloydWindow
+            self.ventana_operacion = FloydWindow(self.mostrar_ventana_grafos, self.volver_a_principal)
+            self.ventana_operacion.show()
+            self.hide()
+        
         else:
             QMessageBox.information(self, "En desarrollo", f"La operación '{nombre}' estará disponible próximamente.")
         

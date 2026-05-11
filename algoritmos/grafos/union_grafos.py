@@ -212,6 +212,14 @@ class UnionGrafosWindow(QMainWindow):
 
         # No crear grafos automáticamente al inicio
 
+    def volver_a_grafos(self):
+        self.close()
+        self.volver_a_grafos()
+
+    def volver_a_principal(self):
+        self.close()
+        self.volver_a_principal()
+
     def _button_style(self, bg_color, text_color):
         return f"""
             QPushButton {{
@@ -266,9 +274,7 @@ class UnionGrafosWindow(QMainWindow):
         dlg = DialogoArista(n, self, etiquetas)
         if dlg.exec():
             u, v, peso = dlg.get_arista()
-            if u == v:
-                DialogoClave(0, "Error", "mensaje", self, "No se permiten bucles.").exec()
-                return
+            # Permitir bucles (u == v)
             etiq_u = etiquetas.get(u, str(u+1))
             etiq_v = etiquetas.get(v, str(v+1))
             if num == 1:
@@ -278,7 +284,7 @@ class UnionGrafosWindow(QMainWindow):
             if ok:
                 self.actualizar_visual(num)
                 DialogoClave(0, "Arista agregada", "mensaje", self,
-                             f"Arista ({etiq_u} ↔ {etiq_v}) agregada.").exec()
+                            f"Arista ({etiq_u} ↔ {etiq_v}) agregada.").exec()
             else:
                 DialogoClave(0, "Error", "mensaje", self, "La arista ya existe.").exec()
 
@@ -342,7 +348,6 @@ class UnionGrafosWindow(QMainWindow):
             DialogoClave(0, "Error", "mensaje", self, "Ambos grafos deben tener al menos un vértice.").exec()
             return
 
-        # Obtener todas las etiquetas
         etiq1 = set(self.grafo1._etiquetas.values())
         etiq2 = set(self.grafo2._etiquetas.values())
         todas = etiq1.union(etiq2)
@@ -352,7 +357,6 @@ class UnionGrafosWindow(QMainWindow):
             DialogoClave(0, "Unión vacía", "mensaje", self, "No hay vértices en los grafos.").exec()
             return
 
-        # Mapeos
         idx1 = {v: k for k, v in self.grafo1._etiquetas.items()}
         idx2 = {v: k for k, v in self.grafo2._etiquetas.items()}
         nuevo_idx = {}
@@ -361,35 +365,42 @@ class UnionGrafosWindow(QMainWindow):
             nuevo_idx[etiq] = i
             nuevas_etiquetas[i] = etiq
 
-        # Recolectar aristas sin duplicados por etiquetas
-        aristas_union = []
-        aristas_por_etiq = set()
+        # Diccionario para almacenar pesos (usando clave de arista por etiquetas)
+        pesos_union = {}
 
-        # Aristas del grafo 1
-        for u1, v1 in self.grafo1._aristas:
+        # Aristas de G1
+        for u1, v1, peso in self.grafo1._aristas:
             etiq_u = self.grafo1._etiquetas.get(u1)
             etiq_v = self.grafo1._etiquetas.get(v1)
             if etiq_u and etiq_v:
-                arista_etiq = tuple(sorted((etiq_u, etiq_v)))
-                if arista_etiq not in aristas_por_etiq:
-                    aristas_por_etiq.add(arista_etiq)
+                # Clave normalizada por etiquetas (para evitar duplicados)
+                key_etiq = tuple(sorted((etiq_u, etiq_v)))
+                if key_etiq not in pesos_union:
                     nu = nuevo_idx[etiq_u]
                     nv = nuevo_idx[etiq_v]
-                    aristas_union.append(tuple(sorted((nu, nv))))
+                    if nu > nv:
+                        nu, nv = nv, nu
+                    pesos_union[key_etiq] = (nu, nv, peso)
 
-        # Aristas del grafo 2
-        for u2, v2 in self.grafo2._aristas:
+        # Aristas de G2
+        for u2, v2, peso in self.grafo2._aristas:
             etiq_u = self.grafo2._etiquetas.get(u2)
             etiq_v = self.grafo2._etiquetas.get(v2)
             if etiq_u and etiq_v:
-                arista_etiq = tuple(sorted((etiq_u, etiq_v)))
-                if arista_etiq not in aristas_por_etiq:
-                    aristas_por_etiq.add(arista_etiq)
+                key_etiq = tuple(sorted((etiq_u, etiq_v)))
+                if key_etiq not in pesos_union:
                     nu = nuevo_idx[etiq_u]
                     nv = nuevo_idx[etiq_v]
-                    aristas_union.append(tuple(sorted((nu, nv))))
+                    if nu > nv:
+                        nu, nv = nv, nu
+                    pesos_union[key_etiq] = (nu, nv, peso)
 
-        self.visual_union.set_grafo(len(todas), aristas_union, nuevas_etiquetas, {})
+        # Construir listas para el visualizador
+        aristas_finales = [(nu, nv) for (nu, nv, _) in pesos_union.values()]
+        pesos_finales = [peso for (_, _, peso) in pesos_union.values()]
+
+        self.visual_union.set_grafo(len(todas), aristas_finales, nuevas_etiquetas, pesos_finales)
+
         exclusivos_g1 = len(etiq1 - etiq2)
         exclusivos_g2 = len(etiq2 - etiq1)
         comunes = len(etiq1 & etiq2)
@@ -399,10 +410,10 @@ class UnionGrafosWindow(QMainWindow):
                      f"  • Exclusivos G1: {exclusivos_g1}\n"
                      f"  • Exclusivos G2: {exclusivos_g2}\n"
                      f"  • Comunes: {comunes}\n\n"
-                     f"Aristas totales: {len(aristas_union)}\n"
+                     f"Aristas totales: {len(aristas_finales)}\n"
                      f"  • De G1: {len(self.grafo1._aristas)}\n"
                      f"  • De G2: {len(self.grafo2._aristas)}").exec()
-
+        
     def guardar_union(self):
         if self.visual_union.num_vertices == 0:
             DialogoClave(0, "Error", "mensaje", self, "No hay unión para guardar.").exec()

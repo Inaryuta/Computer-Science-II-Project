@@ -1,31 +1,97 @@
 import math
+from collections import defaultdict
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QGraphicsScene, QGraphicsView, QLabel
-from PySide6.QtCore import Qt, Signal, QRectF
-from PySide6.QtGui import QPen, QBrush, QColor, QFont, QPainterPath, QPainter
+from PySide6.QtCore import Qt, Signal, QRectF, QPointF
+from PySide6.QtGui import QPen, QBrush, QColor, QFont, QPainterPath, QWheelEvent
+
+
+class GrafoScene(QGraphicsScene):
+    """Escena personalizada que permite arrastrar vértices."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.visualizador = None
+        self.dragging_vertex = None
+        self.drag_start_pos = None
+
+    def set_visualizador(self, vis):
+        self.visualizador = vis
+
+    def mousePressEvent(self, event):
+        if not self.visualizador or not self.visualizador.es_editable:
+            super().mousePressEvent(event)
+            return
+        pos = event.scenePos()
+        for i, (x, y) in enumerate(self.visualizador.posiciones):
+            if math.hypot(x - pos.x(), y - pos.y()) <= self.visualizador.radio:
+                self.dragging_vertex = i
+                self.drag_start_pos = pos
+                self.visualizador.vertice_clicked.emit(i)
+                event.accept()
+                return
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        if self.dragging_vertex is not None and self.visualizador:
+            pos = event.scenePos()
+            delta = pos - self.drag_start_pos
+            x, y = self.visualizador.posiciones[self.dragging_vertex]
+            self.visualizador.posiciones[self.dragging_vertex] = (x + delta.x(), y + delta.y())
+            self.drag_start_pos = pos
+            # Redibujar sin ajustar la vista
+            self.visualizador.dibujar(ajustar_vista=False)
+            event.accept()
+            return
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        if self.dragging_vertex is not None:
+            self.dragging_vertex = None
+            self.drag_start_pos = None
+            # Al final del arrastre, ajustar la vista
+            if self.visualizador:
+                self.visualizador.ajustar_vista()
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
+
+
+class GraficoView(QGraphicsView):
+    def __init__(self, scene, parent=None):
+        super().__init__(scene, parent)
+        self.setRenderHints(self.renderHints())
+        self.setDragMode(QGraphicsView.ScrollHandDrag)
+        self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
+        self.setResizeAnchor(QGraphicsView.AnchorUnderMouse)
+
+    def wheelEvent(self, event: QWheelEvent):
+        factor = 1.1
+        if event.angleDelta().y() > 0:
+            self.scale(factor, factor)
+        else:
+            self.scale(1/factor, 1/factor)
+
 
 class VisualizadorGrafo(QWidget):
     vertice_clicked = Signal(int)
-    arista_clicked = Signal(tuple)  # (origen, destino, índice)
 
     def __init__(self, titulo="Grafo", parent=None, es_editable=False):
         super().__init__(parent)
         self.titulo = titulo
         self.es_editable = es_editable
         self.num_vertices = 0
-        self.aristas = []          # lista de tuplas (origen, destino)
-        self.pesos = []            # lista de pesos, en paralelo a aristas
+        self.aristas = []
+        self.pesos = []
         self.etiquetas = {}
         self.posiciones = []
         self.radio = 20
-        self.curvatura = 0.3       # para curvar aristas paralelas
-
         self.initUI()
 
     def initUI(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0,0,0,0)
-        self.scene = QGraphicsScene()
-        self.view = QGraphicsView(self.scene)
+        self.scene = GrafoScene(self)
+        self.scene.set_visualizador(self)
+        self.view = GraficoView(self.scene, self)
         self.view.setFixedSize(450, 450)
         self.view.setStyleSheet("background-color: white; border: 2px solid #99ccff; border-radius: 8px;")
         layout.addWidget(self.view)
@@ -33,31 +99,20 @@ class VisualizadorGrafo(QWidget):
         self.titulo_label.setAlignment(Qt.AlignCenter)
         self.titulo_label.setStyleSheet("font-weight: bold; color: #003366;")
         layout.addWidget(self.titulo_label)
-        self.scene.mousePressEvent = self.scene_mouse_press
-
-    def scene_mouse_press(self, event):
-        if not self.es_editable:
-            return
-        pos = event.scenePos()
-        for i, (x, y) in enumerate(self.posiciones):
-            dx = x - pos.x()
-            dy = y - pos.y()
-            if math.hypot(dx, dy) <= self.radio:
-                self.vertice_clicked.emit(i)
-                return
 
     def set_grafo(self, num_vertices, aristas, etiquetas, pesos=None):
         self.num_vertices = num_vertices
-        self.aristas = aristas  # lista de (u,v)
+        self.aristas = aristas
         if pesos is None:
             self.pesos = [1] * len(aristas)
         elif isinstance(pesos, dict):
-            # Si llegó como diccionario, convertirlo a lista en el orden de aristas
             self.pesos = [pesos.get(arista, 1) for arista in aristas]
         else:
-            self.pesos = pesos  # asumimos lista
+            self.pesos = pesos
         self.etiquetas = etiquetas
-        self._calcular_posiciones()
+        # Recalcular posiciones solo si el número de vértices cambió
+        if len(self.posiciones) != self.num_vertices:
+            self._calcular_posiciones()
         self.dibujar()
 
     def _calcular_posiciones(self):
@@ -74,12 +129,14 @@ class VisualizadorGrafo(QWidget):
             y = centro_y + radio_circulo * math.sin(angulo)
             self.posiciones.append((x, y))
 
-    def dibujar(self):
+    def dibujar(self, ajustar_vista=True):
         self.scene.clear()
         if self.num_vertices == 0:
             texto = self.scene.addText("Grafo vacío")
             texto.setDefaultTextColor(QColor("#336699"))
             texto.setPos(150, 200)
+            if ajustar_vista:
+                self.ajustar_vista()
             return
 
         pen_arista = QPen(QColor("#336699"), 2)
@@ -87,17 +144,13 @@ class VisualizadorGrafo(QWidget):
         pen_vertice = QPen(QColor("#1e6bb8"), 2)
         text_color = QColor("white")
 
-        # Contar cuántas aristas hay entre cada par (para curvar)
-        from collections import defaultdict
+        # Contar aristas paralelas
         contador = defaultdict(int)
         for (u,v) in self.aristas:
             if u == v:
                 contador[('loop', u)] += 1
             else:
-                key = tuple(sorted((u,v)))
-                contador[key] += 1
-
-        # Diccionario para llevar el desplazamiento de cada arista paralela
+                contador[tuple(sorted((u,v)))] += 1
         offset_actual = defaultdict(int)
 
         for idx, (u, v) in enumerate(self.aristas):
@@ -105,19 +158,14 @@ class VisualizadorGrafo(QWidget):
             x2, y2 = self.posiciones[v]
             peso = self.pesos[idx] if idx < len(self.pesos) else ""
 
-            # Determinar cuántas aristas paralelas hay y el desplazamiento actual
             if u == v:
-                # Bucle: dibujar un arco circular
                 radio_bucle = self.radio * 1.2
                 centro_x = x1
                 centro_y = y1 - radio_bucle
-                start_angle = -90  # grados
-                span_angle = 360
                 path = QPainterPath()
-                path.arcMoveTo(centro_x - radio_bucle, centro_y - radio_bucle, 2*radio_bucle, 2*radio_bucle, start_angle)
-                path.arcTo(centro_x - radio_bucle, centro_y - radio_bucle, 2*radio_bucle, 2*radio_bucle, start_angle, span_angle)
+                path.arcMoveTo(centro_x - radio_bucle, centro_y - radio_bucle, 2*radio_bucle, 2*radio_bucle, -90)
+                path.arcTo(centro_x - radio_bucle, centro_y - radio_bucle, 2*radio_bucle, 2*radio_bucle, -90, 360)
                 self.scene.addPath(path, pen_arista)
-                # Etiqueta de peso cerca del bucle
                 if peso:
                     text = self.scene.addText(str(peso))
                     text.setDefaultTextColor(QColor("#003366"))
@@ -126,64 +174,55 @@ class VisualizadorGrafo(QWidget):
             else:
                 key = tuple(sorted((u,v)))
                 total = contador[key]
-                # Índice de esta arista entre las paralelas
-                # Usamos order interno; como los guardamos en lista, podemos contar cuántas veces ha aparecido este par
-                # Simplificado: usamos un contador progresivo
                 actual = offset_actual[key]
                 offset_actual[key] += 1
-                # Desplazamiento proporcional: entre -0.4 y 0.4 veces la distancia
-                max_offset = 40  # píxeles máximos de curvatura
                 if total > 1:
-                    # Calcular un desplazamiento radial perpendicular a la línea
                     dx = x2 - x1
                     dy = y2 - y1
                     dist = math.hypot(dx, dy)
-                    if dist < 0.01:
-                        continue
-                    # Vector unitario
-                    ux = dx / dist
-                    uy = dy / dist
-                    # Perpendicular
-                    px = -uy
-                    py = ux
-                    # Factor de desplazamiento: -0.4 a 0.4 veces la distancia, dependiendo del índice
-                    factor = (actual - (total-1)/2) / (total) * 2  # rango -1..1
-                    offset = factor * max_offset
-                    # Puntos de control para curva cuadrática
-                    mid_x = (x1 + x2) / 2 + px * offset
-                    mid_y = (y1 + y2) / 2 + py * offset
-                    path = QPainterPath()
-                    path.moveTo(x1, y1)
-                    path.quadTo(mid_x, mid_y, x2, y2)
-                    self.scene.addPath(path, pen_arista)
+                    if dist > 0.01:
+                        ux = dx / dist
+                        uy = dy / dist
+                        px = -uy
+                        py = ux
+                        factor = (actual - (total-1)/2) / (total) * 2
+                        offset = factor * 40
+                        mid_x = (x1 + x2)/2 + px * offset
+                        mid_y = (y1 + y2)/2 + py * offset
+                        path = QPainterPath()
+                        path.moveTo(x1, y1)
+                        path.quadTo(mid_x, mid_y, x2, y2)
+                        self.scene.addPath(path, pen_arista)
+                    else:
+                        self.scene.addLine(x1, y1, x2, y2, pen_arista)
                 else:
-                    # Línea recta
                     self.scene.addLine(x1, y1, x2, y2, pen_arista)
 
-                # Peso en el centro (ligeramente desplazado si es curva)
                 if peso:
                     if total > 1:
-                        # Colocar el peso cerca del punto medio de la curva
-                        mx = (x1 + x2) / 2 + px * offset/2
-                        my = (y1 + y2) / 2 + py * offset/2
+                        mx = (x1 + x2)/2 + px * offset/2
+                        my = (y1 + y2)/2 + py * offset/2
                     else:
-                        mx = (x1 + x2) / 2
-                        my = (y1 + y2) / 2
+                        mx = (x1 + x2)/2
+                        my = (y1 + y2)/2
                     text = self.scene.addText(str(peso))
                     text.setDefaultTextColor(QColor("#003366"))
                     text.setPos(mx - 5, my - 5)
                     text.setScale(0.8)
 
-        # Dibujar vértices
+        # Vértices
         for i, (x, y) in enumerate(self.posiciones):
-            # Círculo
             self.scene.addEllipse(x-self.radio, y-self.radio, 2*self.radio, 2*self.radio,
                                   pen_vertice, brush_vertice)
-            # Etiqueta
             etiq = self.etiquetas.get(i, str(i+1))
             texto = self.scene.addText(etiq)
             texto.setDefaultTextColor(text_color)
             rect = texto.boundingRect()
             texto.setPos(x - rect.width()/2, y - rect.height()/2)
 
-        self.scene.setSceneRect(QRectF(0,0,450,450))
+        if ajustar_vista:
+            self.ajustar_vista()
+
+    def ajustar_vista(self):
+        if self.num_vertices > 0:
+            self.view.fitInView(self.scene.sceneRect(), Qt.KeepAspectRatio)

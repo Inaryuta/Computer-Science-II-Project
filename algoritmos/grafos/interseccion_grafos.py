@@ -217,6 +217,14 @@ class InterseccionGrafosWindow(QMainWindow):
         main_layout.addWidget(scroll)
 
         # No crear grafos automáticamente al inicio
+        
+        def volver_a_grafos(self):
+            self.close()
+            self.volver_a_grafos()
+
+        def volver_a_principal(self):
+            self.close()
+            self.volver_a_principal()
 
     def _button_style(self, bg_color, text_color):
         return f"""
@@ -234,7 +242,6 @@ class InterseccionGrafosWindow(QMainWindow):
         """
 
     def _darken_color(self, color):
-        # Oscurece colores hex simples para el hover
         if color == "#4d9de0":
             return "#3b7cb0"
         elif color == "#27ae60":
@@ -273,10 +280,7 @@ class InterseccionGrafosWindow(QMainWindow):
         dlg = DialogoArista(n, self, etiquetas)
         if dlg.exec():
             u, v, peso = dlg.get_arista()
-            if u == v:
-                DialogoClave(0, "Error", "mensaje", self, "No se permiten bucles.").exec()
-                return
-            # Obtener etiquetas para el mensaje
+            # Permitir bucles (u == v)
             etiq_u = etiquetas.get(u, str(u+1))
             etiq_v = etiquetas.get(v, str(v+1))
             if num == 1:
@@ -366,26 +370,40 @@ class InterseccionGrafosWindow(QMainWindow):
             nuevo_idx[etiq] = i
             nuevas_etiquetas[i] = etiq
 
-        aristas_int = []
-        for u1, v1 in self.grafo1._aristas:
+        # Diccionario para almacenar pesos de las aristas de intersección
+        pesos_int = {}
+
+        # Recorrer aristas de G1 (cada una es (u, v, peso))
+        for u1, v1, peso in self.grafo1._aristas:
             etiq_u = self.grafo1._etiquetas.get(u1)
             etiq_v = self.grafo1._etiquetas.get(v1)
             if etiq_u in comunes and etiq_v in comunes:
                 u2 = idx2.get(etiq_u)
                 v2 = idx2.get(etiq_v)
                 if u2 is not None and v2 is not None:
-                    arista2 = tuple(sorted((u2, v2)))
-                    if arista2 in self.grafo2._aristas:
+                    # Verificar si la arista existe en G2 (sin considerar peso)
+                    existe_en_g2 = False
+                    for (x, y, _) in self.grafo2._aristas:
+                        if (x == u2 and y == v2) or (x == v2 and y == u2):
+                            existe_en_g2 = True
+                            break
+                    if existe_en_g2:
                         nu = nuevo_idx[etiq_u]
                         nv = nuevo_idx[etiq_v]
-                        nueva = tuple(sorted((nu, nv)))
-                        if nueva not in aristas_int:
-                            aristas_int.append(nueva)
+                        if nu > nv:
+                            nu, nv = nv, nu
+                        arista = (nu, nv)
+                        if arista not in pesos_int:
+                            pesos_int[arista] = peso  # mantener peso de G1 (podría ser el mismo)
 
-        self.visual_interseccion.set_grafo(len(comunes), aristas_int, nuevas_etiquetas, {})
+        # Construir listas para el visualizador
+        aristas_finales = list(pesos_int.keys())
+        pesos_finales = [pesos_int[a] for a in aristas_finales]
+
+        self.visual_interseccion.set_grafo(len(comunes), aristas_finales, nuevas_etiquetas, pesos_finales)
         DialogoClave(0, "Intersección calculada", "mensaje", self,
-                     f"Vértices comunes: {len(comunes)}\nAristas comunes: {len(aristas_int)}").exec()
-
+                     f"Vértices comunes: {len(comunes)}\nAristas comunes: {len(aristas_finales)}").exec()
+        
     def guardar_interseccion(self):
         if self.visual_interseccion.num_vertices == 0:
             DialogoClave(0, "Error", "mensaje", self, "No hay intersección para guardar.").exec()
@@ -412,3 +430,4 @@ class InterseccionGrafosWindow(QMainWindow):
         self.actualizar_visual(1)
         self.actualizar_visual(2)
         self.limpiar_interseccion()
+        

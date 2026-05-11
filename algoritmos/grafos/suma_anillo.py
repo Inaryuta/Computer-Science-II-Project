@@ -35,10 +35,10 @@ class SumaAnilloGrafosWindow(QMainWindow):
         header_layout = QHBoxLayout(header)
         btn_back = QPushButton("← Volver a Grafos")
         btn_back.setStyleSheet(self._button_style("#e6f2ff", "#003366"))
-        btn_back.clicked.connect(self.volver_a_grafos)
+        btn_back.clicked.connect(self.cerrar_y_volver_a_grafos)
         btn_home = QPushButton("🏠 Inicio")
         btn_home.setStyleSheet(self._button_style("#e6f2ff", "#003366"))
-        btn_home.clicked.connect(self.volver_a_principal)
+        btn_home.clicked.connect(self.cerrar_y_volver_a_principal)
         header_layout.addWidget(btn_back)
         header_layout.addWidget(btn_home)
         titulo = QLabel("SUMA DE ANILLO DE GRAFOS")
@@ -242,6 +242,14 @@ class SumaAnilloGrafosWindow(QMainWindow):
             return "#cce6ff"
         return color
 
+    def cerrar_y_volver_a_grafos(self):
+        self.close()
+        self.volver_a_grafos()
+
+    def cerrar_y_volver_a_principal(self):
+        self.close()
+        self.volver_a_principal()
+
     def crear_grafo(self, num):
         if num == 1:
             n = self.spin_v1.value()
@@ -266,9 +274,7 @@ class SumaAnilloGrafosWindow(QMainWindow):
         dlg = DialogoArista(n, self, etiquetas)
         if dlg.exec():
             u, v, peso = dlg.get_arista()
-            if u == v:
-                DialogoClave(0, "Error", "mensaje", self, "No se permiten bucles.").exec()
-                return
+            # Permitir bucles (u == v)
             etiq_u = etiquetas.get(u, str(u+1))
             etiq_v = etiquetas.get(v, str(v+1))
             if num == 1:
@@ -277,8 +283,10 @@ class SumaAnilloGrafosWindow(QMainWindow):
                 ok = self.grafo2.agregar_arista(u, v, peso)
             if ok:
                 self.actualizar_visual(num)
-                DialogoClave(0, "Arista agregada", "mensaje", self,
-                             f"Arista ({etiq_u} ↔ {etiq_v}) agregada.").exec()
+                if u == v:
+                    DialogoClave(0, "Arista agregada", "mensaje", self, f"Bucle en {etiq_u} agregado.").exec()
+                else:
+                    DialogoClave(0, "Arista agregada", "mensaje", self, f"Arista ({etiq_u} ↔ {etiq_v}) agregada.").exec()
             else:
                 DialogoClave(0, "Error", "mensaje", self, "La arista ya existe.").exec()
 
@@ -299,8 +307,10 @@ class SumaAnilloGrafosWindow(QMainWindow):
                 ok = self.grafo2.eliminar_arista(u, v)
             if ok:
                 self.actualizar_visual(num)
-                DialogoClave(0, "Arista eliminada", "mensaje", self,
-                             f"Arista ({etiq_u} ↔ {etiq_v}) eliminada.").exec()
+                if u == v:
+                    DialogoClave(0, "Arista eliminada", "mensaje", self, f"Bucle en {etiq_u} eliminado.").exec()
+                else:
+                    DialogoClave(0, "Arista eliminada", "mensaje", self, f"Arista ({etiq_u} ↔ {etiq_v}) eliminada.").exec()
             else:
                 DialogoClave(0, "Error", "mensaje", self, "La arista no existe.").exec()
 
@@ -342,7 +352,6 @@ class SumaAnilloGrafosWindow(QMainWindow):
             DialogoClave(0, "Error", "mensaje", self, "Ambos grafos deben tener al menos un vértice.").exec()
             return
 
-        # Obtener todas las etiquetas (unión de vértices)
         etiq1 = set(self.grafo1._etiquetas.values())
         etiq2 = set(self.grafo2._etiquetas.values())
         todas = etiq1.union(etiq2)
@@ -352,17 +361,15 @@ class SumaAnilloGrafosWindow(QMainWindow):
             DialogoClave(0, "Suma anillo vacía", "mensaje", self, "No hay vértices en los grafos.").exec()
             return
 
-        # Mapeo etiqueta -> nuevo índice
         nuevo_idx = {}
         nuevas_etiquetas = {}
         for i, etiq in enumerate(sorted(todas)):
             nuevo_idx[etiq] = i
             nuevas_etiquetas[i] = etiq
 
-        # Convertir aristas de cada grafo a tuplas (etiq_origen, etiq_destino, peso)
         def aristas_con_etiquetas(grafo):
             resultado = []
-            for (u, v), peso in grafo._pesos.items():
+            for (u, v, peso) in grafo._aristas:
                 etiq_u = grafo._etiquetas.get(u)
                 etiq_v = grafo._etiquetas.get(v)
                 if etiq_u and etiq_v:
@@ -374,9 +381,8 @@ class SumaAnilloGrafosWindow(QMainWindow):
         aristas_g1 = aristas_con_etiquetas(self.grafo1)
         aristas_g2 = aristas_con_etiquetas(self.grafo2)
 
-        # Suma anillo: aristas que están en exactamente uno de los dos grafos (XOR)
         conteo = {}
-        pesos_por_arista = {}  # guardar el peso de la arista (si aparece en ambos, da igual)
+        pesos_por_arista = {}
         for a in aristas_g1:
             key = (a[0], a[1])
             conteo[key] = conteo.get(key, 0) + 1
@@ -390,7 +396,7 @@ class SumaAnilloGrafosWindow(QMainWindow):
         aristas_finales = []
         pesos_dict = {}
         for key, cnt in conteo.items():
-            if cnt == 1:  # XOR: aparece una sola vez
+            if cnt == 1:
                 u_etiq, v_etiq = key
                 nu = nuevo_idx[u_etiq]
                 nv = nuevo_idx[v_etiq]
