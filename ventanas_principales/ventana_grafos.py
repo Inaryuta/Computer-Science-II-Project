@@ -127,7 +127,14 @@ class VentanaGrafos(QWidget):
             accion.triggered.connect(lambda checked, nombre=ar: self.abrir_operacion(nombre))
 
         # Llenar menú de algoritmos
-        algoritmos = ["Bellman-Ford", "Dijkstra", "Floyd-Warshall", "Coloreo de Grafos"]
+        algoritmos = [
+            "Bellman-Ford",
+            "Dijkstra",
+            "Floyd-Warshall",
+            "Coloreo de Grafos",
+            "Métricas Grafos No Dirigidos",
+            "Métricas Grafos Dirigidos",
+        ]
         for alg in algoritmos:
             accion = self.menu_algoritmos.addAction(alg)
             accion.triggered.connect(lambda checked, nombre=alg: self.abrir_operacion(nombre))
@@ -235,6 +242,24 @@ class VentanaGrafos(QWidget):
         elif nombre == "Coloreo de Grafos":
             from algoritmos.grafos.coloreo_window import ColoreoWindow
             self.ventana_operacion = ColoreoWindow(self.mostrar_ventana_grafos, self.volver_a_principal)
+            self.ventana_operacion.show()
+            self.hide()
+        
+        elif nombre == "Métricas Grafos No Dirigidos":
+            from algoritmos.grafos.metricas_grafo import MetricasGrafoWindow
+            self.ventana_operacion = MetricasGrafoWindow(
+                self.mostrar_ventana_grafos,
+                self.volver_a_principal
+            )
+            self.ventana_operacion.show()
+            self.hide()
+ 
+        elif nombre == "Métricas Grafos Dirigidos":
+            from algoritmos.grafos.metricas_grafo_dirigido import MetricasGrafoDirigidoWindow
+            self.ventana_operacion = MetricasGrafoDirigidoWindow(
+                self.mostrar_ventana_grafos,
+                self.volver_a_principal
+            )
             self.ventana_operacion.show()
             self.hide()
         
