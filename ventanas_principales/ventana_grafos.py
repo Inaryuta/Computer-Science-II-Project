@@ -127,7 +127,7 @@ class VentanaGrafos(QWidget):
             accion.triggered.connect(lambda checked, nombre=ar: self.abrir_operacion(nombre))
 
         # Llenar menú de algoritmos
-        algoritmos = ["Bellman-Ford", "Dijkstra", "Floyd-Warshall"]
+        algoritmos = ["Bellman-Ford", "Dijkstra", "Floyd-Warshall", "Coloreo de Grafos"]
         for alg in algoritmos:
             accion = self.menu_algoritmos.addAction(alg)
             accion.triggered.connect(lambda checked, nombre=alg: self.abrir_operacion(nombre))
@@ -229,6 +229,12 @@ class VentanaGrafos(QWidget):
         elif nombre == "Floyd-Warshall":
             from algoritmos.grafos.floyd import FloydWindow
             self.ventana_operacion = FloydWindow(self.mostrar_ventana_grafos, self.volver_a_principal)
+            self.ventana_operacion.show()
+            self.hide()
+        
+        elif nombre == "Coloreo de Grafos":
+            from algoritmos.grafos.coloreo_window import ColoreoWindow
+            self.ventana_operacion = ColoreoWindow(self.mostrar_ventana_grafos, self.volver_a_principal)
             self.ventana_operacion.show()
             self.hide()
         

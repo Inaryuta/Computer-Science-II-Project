@@ -1,17 +1,34 @@
 import math
 from collections import defaultdict
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QGraphicsScene, QGraphicsView, QLabel
-from PySide6.QtCore import Qt, Signal, QRectF, QPointF
-from PySide6.QtGui import QPen, QBrush, QColor, QFont, QPainterPath, QWheelEvent
+
+from PySide6.QtCore import Qt, Signal, QPointF
+from PySide6.QtGui import QPen, QBrush, QColor, QPainterPath, QPolygonF, QWheelEvent
+from PySide6.QtWidgets import (
+    QWidget, QVBoxLayout, QLabel,
+    QGraphicsScene, QGraphicsView,
+)
+
+# ------------------------------------------------------------------ #
+#  Constantes de color por defecto                                    #
+# ------------------------------------------------------------------ #
+COLOR_VERTICE_DEFAULT = "#4d9de0"
+COLOR_BORDE_VERTICE   = "#1e6bb8"
+COLOR_ARISTA_DEFAULT  = "#336699"
+COLOR_TEXTO_VERTICE   = "white"
+COLOR_TEXTO_PESO      = "#003366"
 
 
-class GrafoScene(QGraphicsScene):
-    """Escena personalizada que permite arrastrar vértices."""
+# ------------------------------------------------------------------ #
+#  Escena con arrastre de vértices                                    #
+# ------------------------------------------------------------------ #
+class GrafoSceneColoreable(QGraphicsScene):
+    """Escena personalizada que permite arrastrar vértices cuando es_editable=True."""
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.visualizador = None
-        self.dragging_vertex = None
-        self.drag_start_pos = None
+        self._dragging_vertex = None
+        self._drag_start_pos = None
 
     def set_visualizador(self, vis):
         self.visualizador = vis
@@ -23,31 +40,29 @@ class GrafoScene(QGraphicsScene):
         pos = event.scenePos()
         for i, (x, y) in enumerate(self.visualizador.posiciones):
             if math.hypot(x - pos.x(), y - pos.y()) <= self.visualizador.radio:
-                self.dragging_vertex = i
-                self.drag_start_pos = pos
+                self._dragging_vertex = i
+                self._drag_start_pos = pos
                 self.visualizador.vertice_clicked.emit(i)
                 event.accept()
                 return
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event):
-        if self.dragging_vertex is not None and self.visualizador:
+        if self._dragging_vertex is not None and self.visualizador:
             pos = event.scenePos()
-            delta = pos - self.drag_start_pos
-            x, y = self.visualizador.posiciones[self.dragging_vertex]
-            self.visualizador.posiciones[self.dragging_vertex] = (x + delta.x(), y + delta.y())
-            self.drag_start_pos = pos
-            # Redibujar sin ajustar la vista
+            delta = pos - self._drag_start_pos
+            x, y = self.visualizador.posiciones[self._dragging_vertex]
+            self.visualizador.posiciones[self._dragging_vertex] = (x + delta.x(), y + delta.y())
+            self._drag_start_pos = pos
             self.visualizador.dibujar(ajustar_vista=False)
             event.accept()
             return
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event):
-        if self.dragging_vertex is not None:
-            self.dragging_vertex = None
-            self.drag_start_pos = None
-            # Al final del arrastre, ajustar la vista
+        if self._dragging_vertex is not None:
+            self._dragging_vertex = None
+            self._drag_start_pos = None
             if self.visualizador:
                 self.visualizador.ajustar_vista()
             event.accept()
@@ -55,170 +70,135 @@ class GrafoScene(QGraphicsScene):
         super().mouseReleaseEvent(event)
 
 
-class GraficoView(QGraphicsView):
+# ------------------------------------------------------------------ #
+#  Vista con zoom por rueda                                           #
+# ------------------------------------------------------------------ #
+class GraficoViewColoreable(QGraphicsView):
     def __init__(self, scene, parent=None):
         super().__init__(scene, parent)
-        self.setRenderHints(self.renderHints())
         self.setDragMode(QGraphicsView.ScrollHandDrag)
         self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
         self.setResizeAnchor(QGraphicsView.AnchorUnderMouse)
 
     def wheelEvent(self, event: QWheelEvent):
-        factor = 1.1
-        if event.angleDelta().y() > 0:
-            self.scale(factor, factor)
-        else:
-            self.scale(1/factor, 1/factor)
+        factor = 1.1 if event.angleDelta().y() > 0 else 1 / 1.1
+        self.scale(factor, factor)
 
 
-class VisualizadorGrafo(QWidget):
+# ------------------------------------------------------------------ #
+#  Widget principal de visualización                                  #
+# ------------------------------------------------------------------ #
+class VisualizadorGrafoColoreable(QWidget):
+    """
+    Visualizador de grafos con soporte de coloreado de vértices y aristas.
+    Parámetros:
+        titulo      – etiqueta mostrada bajo el canvas
+        es_editable – habilita arrastre de vértices con el ratón
+        dirigido    – dibuja flechas en las aristas
+    """
     vertice_clicked = Signal(int)
 
-    def __init__(self, titulo="Grafo", parent=None, es_editable=False):
+    def __init__(
+        self,
+        titulo: str = "Grafo",
+        parent=None,
+        es_editable: bool = False,
+        dirigido: bool = False,
+    ):
         super().__init__(parent)
         self.titulo = titulo
         self.es_editable = es_editable
-        self.num_vertices = 0
-        self.aristas = []
-        self.pesos = []
-        self.etiquetas = {}
-        self.posiciones = []
-        self.radio = 20
-        self.initUI()
+        self.dirigido = dirigido
 
-    def initUI(self):
+        # Estado del grafo
+        self.num_vertices: int = 0
+        self.aristas: list[tuple] = []
+        self.pesos: list = []
+        self.etiquetas: dict = {}
+        self.posiciones: list[tuple] = []
+        self.radio: int = 20
+
+        # Estado de coloreado
+        self.colores_vertices: dict[int, str] = {}   # idx → hex
+        self.colores_aristas: dict[int, str] = {}    # arista_idx → hex
+
+        self._init_ui()
+
+    def _init_ui(self):
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0,0,0,0)
-        self.scene = GrafoScene(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+
+        self.scene = GrafoSceneColoreable(self)
         self.scene.set_visualizador(self)
-        self.view = GraficoView(self.scene, self)
+
+        self.view = GraficoViewColoreable(self.scene, self)
         self.view.setFixedSize(450, 450)
-        self.view.setStyleSheet("background-color: white; border: 2px solid #99ccff; border-radius: 8px;")
+        self.view.setStyleSheet(
+            "background-color: white; border: 2px solid #99ccff; border-radius: 8px;"
+        )
         layout.addWidget(self.view)
+
         self.titulo_label = QLabel(self.titulo)
         self.titulo_label.setAlignment(Qt.AlignCenter)
         self.titulo_label.setStyleSheet("font-weight: bold; color: #003366;")
         layout.addWidget(self.titulo_label)
 
-    def set_grafo(self, num_vertices, aristas, etiquetas, pesos=None):
+    # ---------------------------------------------------------------- #
+    #  API pública                                                       #
+    # ---------------------------------------------------------------- #
+
+    def set_grafo(
+        self,
+        num_vertices: int,
+        aristas: list,
+        etiquetas: dict,
+        pesos: list | None = None,
+        colores_vertices: dict | None = None,
+        colores_aristas: dict | None = None,
+    ):
+        """Actualiza el grafo completo y redibuja."""
         self.num_vertices = num_vertices
         self.aristas = aristas
-        if pesos is None:
-            self.pesos = [1] * len(aristas)
-        elif isinstance(pesos, dict):
-            self.pesos = [pesos.get(arista, 1) for arista in aristas]
-        else:
-            self.pesos = pesos
+        self.pesos = pesos if isinstance(pesos, list) else [1] * len(aristas)
         self.etiquetas = etiquetas
-        # Recalcular posiciones solo si el número de vértices cambió
+        self.colores_vertices = colores_vertices or {}
+        self.colores_aristas = colores_aristas or {}
+
+        # Recalcular posiciones solo si cambió el número de vértices
         if len(self.posiciones) != self.num_vertices:
             self._calcular_posiciones()
+
         self.dibujar()
 
-    def _calcular_posiciones(self):
-        self.posiciones = []
-        if self.num_vertices == 0:
-            return
-        centro_x, centro_y = 225, 225
-        radio_circulo = 170
-        angulo_inicial = -math.pi / 2
-        paso = 2 * math.pi / self.num_vertices
-        for i in range(self.num_vertices):
-            angulo = angulo_inicial + i * paso
-            x = centro_x + radio_circulo * math.cos(angulo)
-            y = centro_y + radio_circulo * math.sin(angulo)
-            self.posiciones.append((x, y))
+    def set_colores(
+        self,
+        colores_vertices: dict | None = None,
+        colores_aristas: dict | None = None,
+    ):
+        """Actualiza solo los colores y redibuja sin mover vértices."""
+        if colores_vertices is not None:
+            self.colores_vertices = colores_vertices
+        if colores_aristas is not None:
+            self.colores_aristas = colores_aristas
+        self.dibujar(ajustar_vista=False)
 
-    def dibujar(self, ajustar_vista=True):
+    # ---------------------------------------------------------------- #
+    #  Dibujo                                                            #
+    # ---------------------------------------------------------------- #
+
+    def dibujar(self, ajustar_vista: bool = True):
         self.scene.clear()
+
         if self.num_vertices == 0:
-            texto = self.scene.addText("Grafo vacío")
-            texto.setDefaultTextColor(QColor("#336699"))
-            texto.setPos(150, 200)
+            t = self.scene.addText("Grafo vacío")
+            t.setDefaultTextColor(QColor("#336699"))
+            t.setPos(150, 200)
             if ajustar_vista:
                 self.ajustar_vista()
             return
 
-        pen_arista = QPen(QColor("#336699"), 2)
-        brush_vertice = QBrush(QColor("#4d9de0"))
-        pen_vertice = QPen(QColor("#1e6bb8"), 2)
-        text_color = QColor("white")
-
-        # Contar aristas paralelas
-        contador = defaultdict(int)
-        for (u,v) in self.aristas:
-            if u == v:
-                contador[('loop', u)] += 1
-            else:
-                contador[tuple(sorted((u,v)))] += 1
-        offset_actual = defaultdict(int)
-
-        for idx, (u, v) in enumerate(self.aristas):
-            x1, y1 = self.posiciones[u]
-            x2, y2 = self.posiciones[v]
-            peso = self.pesos[idx] if idx < len(self.pesos) else ""
-
-            if u == v:
-                radio_bucle = self.radio * 1.2
-                centro_x = x1
-                centro_y = y1 - radio_bucle
-                path = QPainterPath()
-                path.arcMoveTo(centro_x - radio_bucle, centro_y - radio_bucle, 2*radio_bucle, 2*radio_bucle, -90)
-                path.arcTo(centro_x - radio_bucle, centro_y - radio_bucle, 2*radio_bucle, 2*radio_bucle, -90, 360)
-                self.scene.addPath(path, pen_arista)
-                if peso:
-                    text = self.scene.addText(str(peso))
-                    text.setDefaultTextColor(QColor("#003366"))
-                    text.setPos(x1 - 10, y1 - radio_bucle - 10)
-                    text.setScale(0.8)
-            else:
-                key = tuple(sorted((u,v)))
-                total = contador[key]
-                actual = offset_actual[key]
-                offset_actual[key] += 1
-                if total > 1:
-                    dx = x2 - x1
-                    dy = y2 - y1
-                    dist = math.hypot(dx, dy)
-                    if dist > 0.01:
-                        ux = dx / dist
-                        uy = dy / dist
-                        px = -uy
-                        py = ux
-                        factor = (actual - (total-1)/2) / (total) * 2
-                        offset = factor * 40
-                        mid_x = (x1 + x2)/2 + px * offset
-                        mid_y = (y1 + y2)/2 + py * offset
-                        path = QPainterPath()
-                        path.moveTo(x1, y1)
-                        path.quadTo(mid_x, mid_y, x2, y2)
-                        self.scene.addPath(path, pen_arista)
-                    else:
-                        self.scene.addLine(x1, y1, x2, y2, pen_arista)
-                else:
-                    self.scene.addLine(x1, y1, x2, y2, pen_arista)
-
-                if peso:
-                    if total > 1:
-                        mx = (x1 + x2)/2 + px * offset/2
-                        my = (y1 + y2)/2 + py * offset/2
-                    else:
-                        mx = (x1 + x2)/2
-                        my = (y1 + y2)/2
-                    text = self.scene.addText(str(peso))
-                    text.setDefaultTextColor(QColor("#003366"))
-                    text.setPos(mx - 5, my - 5)
-                    text.setScale(0.8)
-
-        # Vértices
-        for i, (x, y) in enumerate(self.posiciones):
-            self.scene.addEllipse(x-self.radio, y-self.radio, 2*self.radio, 2*self.radio,
-                                  pen_vertice, brush_vertice)
-            etiq = self.etiquetas.get(i, str(i+1))
-            texto = self.scene.addText(etiq)
-            texto.setDefaultTextColor(text_color)
-            rect = texto.boundingRect()
-            texto.setPos(x - rect.width()/2, y - rect.height()/2)
+        self._dibujar_aristas()
+        self._dibujar_vertices()
 
         if ajustar_vista:
             self.ajustar_vista()
@@ -226,3 +206,150 @@ class VisualizadorGrafo(QWidget):
     def ajustar_vista(self):
         if self.num_vertices > 0:
             self.view.fitInView(self.scene.sceneRect(), Qt.KeepAspectRatio)
+
+    # ---------------------------------------------------------------- #
+    #  Helpers internos                                                  #
+    # ---------------------------------------------------------------- #
+
+    def _calcular_posiciones(self):
+        self.posiciones = []
+        if self.num_vertices == 0:
+            return
+        cx, cy = 225, 225
+        r_circ = 170
+        a0 = -math.pi / 2
+        paso = 2 * math.pi / self.num_vertices
+        for i in range(self.num_vertices):
+            a = a0 + i * paso
+            self.posiciones.append((cx + r_circ * math.cos(a), cy + r_circ * math.sin(a)))
+
+    def _pen_arista(self, idx: int) -> QPen:
+        color = self.colores_aristas.get(idx, COLOR_ARISTA_DEFAULT)
+        ancho = 3 if idx in self.colores_aristas else 2
+        return QPen(QColor(color), ancho)
+
+    def _dibujar_aristas(self):
+        # Contar aristas paralelas para el desplazamiento de curvas
+        contador: dict = defaultdict(int)
+        for (u, v) in self.aristas:
+            key = ("loop", u) if u == v else tuple(sorted((u, v)))
+            contador[key] += 1
+        offset_actual: dict = defaultdict(int)
+
+        for idx, (u, v) in enumerate(self.aristas):
+            pen = self._pen_arista(idx)
+            x1, y1 = self.posiciones[u]
+            x2, y2 = self.posiciones[v]
+            peso = self.pesos[idx] if idx < len(self.pesos) else ""
+
+            if u == v:
+                self._dibujar_bucle(x1, y1, pen, peso)
+                continue
+
+            key = tuple(sorted((u, v)))
+            total = contador[key]
+            actual = offset_actual[key]
+            offset_actual[key] += 1
+
+            # Posición intermedia por defecto (línea recta)
+            mid_x = (x1 + x2) / 2
+            mid_y = (y1 + y2) / 2
+
+            if total > 1:
+                dx, dy = x2 - x1, y2 - y1
+                dist = math.hypot(dx, dy)
+                if dist > 0.01:
+                    px, py = -dy / dist, dx / dist
+                    factor = (actual - (total - 1) / 2) / total * 2
+                    offset = factor * 40
+                    mid_x = (x1 + x2) / 2 + px * offset
+                    mid_y = (y1 + y2) / 2 + py * offset
+                    path = QPainterPath()
+                    path.moveTo(x1, y1)
+                    path.quadTo(mid_x, mid_y, x2, y2)
+                    self.scene.addPath(path, pen)
+                else:
+                    self.scene.addLine(x1, y1, x2, y2, pen)
+            else:
+                self.scene.addLine(x1, y1, x2, y2, pen)
+
+            if self.dirigido:
+                self._dibujar_flecha(x1, y1, x2, y2, mid_x, mid_y, total, pen)
+
+            if peso:
+                t = self.scene.addText(str(peso))
+                t.setDefaultTextColor(QColor(COLOR_TEXTO_PESO))
+                t.setPos(mid_x - 5, mid_y - 5)
+                t.setScale(0.8)
+
+    def _dibujar_bucle(self, x: float, y: float, pen: QPen, peso=""):
+        rb = self.radio * 1.2
+        cx, cy = x, y - rb
+        path = QPainterPath()
+        path.arcMoveTo(cx - rb, cy - rb, 2 * rb, 2 * rb, -90)
+        path.arcTo(cx - rb, cy - rb, 2 * rb, 2 * rb, -90, 360)
+        self.scene.addPath(path, pen)
+        if peso:
+            t = self.scene.addText(str(peso))
+            t.setDefaultTextColor(QColor(COLOR_TEXTO_PESO))
+            t.setPos(x - 10, y - 2 * rb - 10)
+            t.setScale(0.8)
+
+    def _dibujar_flecha(
+        self,
+        x1: float, y1: float,
+        x2: float, y2: float,
+        mid_x: float, mid_y: float,
+        total: int,
+        pen: QPen,
+    ):
+        """Dibuja la punta de flecha para aristas dirigidas."""
+        if total > 1:
+            dx, dy = x2 - mid_x, y2 - mid_y
+        else:
+            dx, dy = x2 - x1, y2 - y1
+
+        dist = math.hypot(dx, dy)
+        if dist < 0.01:
+            return
+
+        angulo = math.atan2(dy, dx)
+        cos_a, sin_a = math.cos(angulo), math.sin(angulo)
+        x2a = x2 - cos_a * self.radio
+        y2a = y2 - sin_a * self.radio
+        punta = QPointF(x2a, y2a)
+
+        af = math.radians(25)
+        lf = 15
+        dfx, dfy = -cos_a * lf, -sin_a * lf
+        a1 = QPointF(
+            x2a + dfx * math.cos(af) - dfy * math.sin(af),
+            y2a + dfx * math.sin(af) + dfy * math.cos(af),
+        )
+        a2 = QPointF(
+            x2a + dfx * math.cos(-af) - dfy * math.sin(-af),
+            y2a + dfx * math.sin(-af) + dfy * math.cos(-af),
+        )
+        flecha = QPolygonF([punta, a1, a2])
+        self.scene.addPolygon(flecha, pen, QBrush(pen.color()))
+
+    def _dibujar_vertices(self):
+        for i, (x, y) in enumerate(self.posiciones):
+            color = self.colores_vertices.get(i, COLOR_VERTICE_DEFAULT)
+            pen = QPen(QColor(COLOR_BORDE_VERTICE), 2)
+            brush = QBrush(QColor(color))
+            self.scene.addEllipse(
+                x - self.radio, y - self.radio,
+                2 * self.radio, 2 * self.radio,
+                pen, brush,
+            )
+            etiq = self.etiquetas.get(i, str(i + 1))
+            texto = self.scene.addText(etiq)
+            texto.setDefaultTextColor(QColor(COLOR_TEXTO_VERTICE))
+            rect = texto.boundingRect()
+            texto.setPos(x - rect.width() / 2, y - rect.height() / 2)
+            
+# Alias de compatibilidad
+VisualizadorGrafo = VisualizadorGrafoColoreable
+# Reemplaza también el dirigido
+VisualizadorGrafoDirigido = VisualizadorGrafoColoreable

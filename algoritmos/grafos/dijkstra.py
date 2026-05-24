@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont, QColor
-from controladores.visualizador_grafo_dirigido import VisualizadorGrafoDirigido
+from controladores.visualizador_grafo import VisualizadorGrafoDirigido
 from algoritmos.funcion_mod import DialogoClave
 
 
