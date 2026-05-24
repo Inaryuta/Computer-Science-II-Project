@@ -134,6 +134,7 @@ class VentanaGrafos(QWidget):
             "Coloreo de Grafos",
             "Métricas Grafos No Dirigidos",
             "Métricas Grafos Dirigidos",
+            "Paremiento Grafos"
         ]
         for alg in algoritmos:
             accion = self.menu_algoritmos.addAction(alg)
@@ -263,6 +264,27 @@ class VentanaGrafos(QWidget):
             self.ventana_operacion.show()
             self.hide()
         
+        elif nombre == "Paremiento Grafos":
+            from algoritmos.grafos.pareamiento_grafo import PareamientoGrafoWindow
+            self.ventana_operacion = PareamientoGrafoWindow(
+                self.mostrar_ventana_grafos,
+                self.volver_a_principal
+            )
+            self.ventana_operacion.show()
+            self.hide()
+            
+        elif nombre == "Árbol expansión mínima":
+            from algoritmos.grafos.arbol_expansion import ArbolExpansionWindow
+            self.ventana_operacion = ArbolExpansionWindow(self.mostrar_ventana_grafos, self.volver_a_principal)
+            self.ventana_operacion.show()
+            self.hide()
+        
+        elif nombre == "Árbol expansión máxima":
+            from algoritmos.grafos.arbol_expansion_maxima import ArbolExpansionMaximaWindow
+            self.ventana_operacion = ArbolExpansionMaximaWindow(self.mostrar_ventana_grafos, self.volver_a_principal)
+            self.ventana_operacion.show()
+            self.hide()
+                
         else:
             QMessageBox.information(self, "En desarrollo", f"La operación '{nombre}' estará disponible próximamente.")
         
