@@ -13,10 +13,10 @@ from algoritmos.funcion_mod import DialogoClave
 
 
 class ContraccionAristaWindow(QMainWindow):
-    def __init__(self, volver_a_grafos, volver_a_principal):
+    def __init__(self, callback_grafos, callback_principal):
         super().__init__()
-        self.volver_a_grafos = volver_a_grafos
-        self.volver_a_principal = volver_a_principal
+        self.callback_grafos = callback_grafos       # callback para volver a ventana de grafos
+        self.callback_principal = callback_principal
 
         self.grafo = GrafoController()
 
@@ -122,7 +122,7 @@ class ContraccionAristaWindow(QMainWindow):
         sel_layout.addWidget(self.combo_arista)
         right_layout.addLayout(sel_layout)
 
-        btn_contraer = QPushButton("⚡ Contraer")
+        btn_contraer = QPushButton("Contraer")
         btn_contraer.setStyleSheet(self._button_style("#9c724a", "white"))
         btn_contraer.clicked.connect(self.contraer_arista)
         right_layout.addWidget(btn_contraer)
@@ -173,6 +173,14 @@ class ContraccionAristaWindow(QMainWindow):
         main_layout.addWidget(scroll)
 
         self.actualizar_combo()  # inicializar vacío
+
+    def volver_a_grafos(self):
+        self.close()
+        self.callback_grafos()
+
+    def volver_a_principal(self):
+        self.close()
+        self.callback_principal()
 
     def _button_style(self, bg_color, text_color):
         return f"""

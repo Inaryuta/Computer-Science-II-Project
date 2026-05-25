@@ -12,10 +12,10 @@ from algoritmos.grafos.dialogo_arista import DialogoArista
 from algoritmos.funcion_mod import DialogoClave
 
 class InterseccionGrafosWindow(QMainWindow):
-    def __init__(self, volver_a_grafos, volver_a_principal):
+    def __init__(self, callback_grafos, callback_principal):
         super().__init__()
-        self.volver_a_grafos = volver_a_grafos
-        self.volver_a_principal = volver_a_principal
+        self.callback_grafos = callback_grafos       
+        self.callback_principal = callback_principal 
 
         self.grafo1 = GrafoController()
         self.grafo2 = GrafoController()
@@ -36,10 +36,10 @@ class InterseccionGrafosWindow(QMainWindow):
         header_layout = QHBoxLayout(header)
         btn_back = QPushButton("← Volver a Grafos")
         btn_back.setStyleSheet(self._button_style("#e6f2ff", "#003366"))
-        btn_back.clicked.connect(self.volver_a_grafos)
+        btn_back.clicked.connect(self.volver_a_grafos)   # conecta al método
         btn_home = QPushButton("🏠 Inicio")
         btn_home.setStyleSheet(self._button_style("#e6f2ff", "#003366"))
-        btn_home.clicked.connect(self.volver_a_principal)
+        btn_home.clicked.connect(self.volver_a_principal) # conecta al método
         header_layout.addWidget(btn_back)
         header_layout.addWidget(btn_home)
         titulo = QLabel("INTERSECCIÓN DE GRAFOS")
@@ -60,7 +60,6 @@ class InterseccionGrafosWindow(QMainWindow):
         lbl_g1.setStyleSheet("font-weight: bold; color: #003366;")
         g1_layout.addWidget(lbl_g1, alignment=Qt.AlignCenter)
 
-        # Número de vértices
         h1 = QHBoxLayout()
         h1.addWidget(QLabel("Vértices:"))
         self.spin_v1 = QSpinBox()
@@ -73,7 +72,6 @@ class InterseccionGrafosWindow(QMainWindow):
         h1.addWidget(btn_crear1)
         g1_layout.addLayout(h1)
 
-        # Botones de aristas
         h2 = QHBoxLayout()
         btn_agregar1 = QPushButton("+ Arista")
         btn_agregar1.setStyleSheet(self._button_style("#27ae60", "white"))
@@ -85,7 +83,6 @@ class InterseccionGrafosWindow(QMainWindow):
         h2.addWidget(btn_eliminar1)
         g1_layout.addLayout(h2)
 
-        # Botones de archivo
         h3 = QHBoxLayout()
         btn_guardar1 = QPushButton("Guardar")
         btn_guardar1.setStyleSheet(self._button_style("#3498db", "white"))
@@ -97,7 +94,6 @@ class InterseccionGrafosWindow(QMainWindow):
         h3.addWidget(btn_cargar1)
         g1_layout.addLayout(h3)
 
-        # Botón limpiar
         btn_limpiar1 = QPushButton("Limpiar Grafo")
         btn_limpiar1.setStyleSheet(self._button_style("#95a5a6", "white"))
         btn_limpiar1.clicked.connect(lambda: self.limpiar_grafo(1))
@@ -182,7 +178,6 @@ class InterseccionGrafosWindow(QMainWindow):
         container_layout.setSpacing(20)
         container_layout.setAlignment(Qt.AlignCenter)
 
-        # Layout horizontal para los tres visualizadores
         grafos_layout = QHBoxLayout()
         grafos_layout.setSpacing(20)
 
@@ -217,15 +212,17 @@ class InterseccionGrafosWindow(QMainWindow):
         main_layout.addWidget(scroll)
 
         # No crear grafos automáticamente al inicio
-        
-        def volver_a_grafos(self):
-            self.close()
-            self.volver_a_grafos()
 
-        def volver_a_principal(self):
-            self.close()
-            self.volver_a_principal()
+    # ========== Navegación (métodos de instancia) ==========
+    def volver_a_grafos(self):
+        self.close()
+        self.callback_grafos()
 
+    def volver_a_principal(self):
+        self.close()
+        self.callback_principal()
+
+    # ========== Estilos ==========
     def _button_style(self, bg_color, text_color):
         return f"""
             QPushButton {{
@@ -256,6 +253,7 @@ class InterseccionGrafosWindow(QMainWindow):
             return "#cce6ff"
         return color
 
+    # ========== Funciones del grafo ==========
     def crear_grafo(self, num):
         if num == 1:
             n = self.spin_v1.value()
@@ -280,7 +278,6 @@ class InterseccionGrafosWindow(QMainWindow):
         dlg = DialogoArista(n, self, etiquetas)
         if dlg.exec():
             u, v, peso = dlg.get_arista()
-            # Permitir bucles (u == v)
             etiq_u = etiquetas.get(u, str(u+1))
             etiq_v = etiquetas.get(v, str(v+1))
             if num == 1:
@@ -370,10 +367,7 @@ class InterseccionGrafosWindow(QMainWindow):
             nuevo_idx[etiq] = i
             nuevas_etiquetas[i] = etiq
 
-        # Diccionario para almacenar pesos de las aristas de intersección
         pesos_int = {}
-
-        # Recorrer aristas de G1 (cada una es (u, v, peso))
         for u1, v1, peso in self.grafo1._aristas:
             etiq_u = self.grafo1._etiquetas.get(u1)
             etiq_v = self.grafo1._etiquetas.get(v1)
@@ -381,12 +375,7 @@ class InterseccionGrafosWindow(QMainWindow):
                 u2 = idx2.get(etiq_u)
                 v2 = idx2.get(etiq_v)
                 if u2 is not None and v2 is not None:
-                    # Verificar si la arista existe en G2 (sin considerar peso)
-                    existe_en_g2 = False
-                    for (x, y, _) in self.grafo2._aristas:
-                        if (x == u2 and y == v2) or (x == v2 and y == u2):
-                            existe_en_g2 = True
-                            break
+                    existe_en_g2 = any((x == u2 and y == v2) or (x == v2 and y == u2) for (x, y, _) in self.grafo2._aristas)
                     if existe_en_g2:
                         nu = nuevo_idx[etiq_u]
                         nv = nuevo_idx[etiq_v]
@@ -394,16 +383,15 @@ class InterseccionGrafosWindow(QMainWindow):
                             nu, nv = nv, nu
                         arista = (nu, nv)
                         if arista not in pesos_int:
-                            pesos_int[arista] = peso  # mantener peso de G1 (podría ser el mismo)
+                            pesos_int[arista] = peso
 
-        # Construir listas para el visualizador
         aristas_finales = list(pesos_int.keys())
         pesos_finales = [pesos_int[a] for a in aristas_finales]
 
         self.visual_interseccion.set_grafo(len(comunes), aristas_finales, nuevas_etiquetas, pesos_finales)
         DialogoClave(0, "Intersección calculada", "mensaje", self,
                      f"Vértices comunes: {len(comunes)}\nAristas comunes: {len(aristas_finales)}").exec()
-        
+
     def guardar_interseccion(self):
         if self.visual_interseccion.num_vertices == 0:
             DialogoClave(0, "Error", "mensaje", self, "No hay intersección para guardar.").exec()
@@ -411,7 +399,8 @@ class InterseccionGrafosWindow(QMainWindow):
         datos = {
             'vertices': self.visual_interseccion.num_vertices,
             'aristas': self.visual_interseccion.aristas,
-            'etiquetas': self.visual_interseccion.etiquetas
+            'etiquetas': self.visual_interseccion.etiquetas,
+            'pesos': {str(a): p for a, p in zip(self.visual_interseccion.aristas, self.visual_interseccion.pesos)}
         }
         ruta, _ = QFileDialog.getSaveFileName(self, "Guardar Intersección", "", "JSON (*.json)")
         if ruta:
@@ -430,4 +419,3 @@ class InterseccionGrafosWindow(QMainWindow):
         self.actualizar_visual(1)
         self.actualizar_visual(2)
         self.limpiar_interseccion()
-        

@@ -288,12 +288,12 @@ class ConjuntosDominantesWindow(QMainWindow):
         lay.addWidget(self._lbl("Tipo de conjunto dominante:"))
 
         operaciones = [
-            ("🔴  Dominante Mínimo  (γ)",       "minimo"),
-            ("🟣  Dominante Máximo  (Γ)",        "maximo"),
+            ("🔴  Dominante Mínimo",       "minimo"),
+            ("🟣  Dominante Máximo",        "maximo"),
             ("🟢  Dominante Independiente",       "independiente"),
             ("🔵  Dominante Conexo",              "conexo"),
             ("🟠  Dominante Maximal",             "maximal"),
-            ("🩵  Número de Independencia  (α)",  "independencia"),
+            ("Número de Independencia",  "independencia"),
         ]
         for label, tipo in operaciones:
             btn = QPushButton(label)

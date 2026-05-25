@@ -10,7 +10,7 @@ class VentanaPrincipal(QMainWindow):
         self.initUI()
 
     def initUI(self):
-        self.setWindowTitle("Algoritmos de Búsqueda y Grafos")
+        self.setWindowTitle("Ciencias De la Computación II")
         self.setGeometry(100, 100, 800, 600)
 
         # Fondo blanco con tono azul muy suave
@@ -31,7 +31,7 @@ class VentanaPrincipal(QMainWindow):
         layout.setContentsMargins(50, 50, 50, 50)
 
         # Título
-        titulo = QLabel("ALGORITMOS Y ESTRUCTURAS DE DATOS")
+        titulo = QLabel("CIENCIAS DE LA COMPUTACIÓN II")
         titulo.setFont(QFont("Arial", 28, QFont.Bold))
         titulo.setAlignment(Qt.AlignCenter)
         titulo.setStyleSheet("color: #003366; margin-bottom: 10px;")
@@ -47,7 +47,7 @@ class VentanaPrincipal(QMainWindow):
         layout.addStretch()
 
         # Botón de Búsquedas
-        self.btn_busquedas = QPushButton("🔍  ALGORITMOS DE BÚSQUEDA")
+        self.btn_busquedas = QPushButton("ALGORITMOS DE BÚSQUEDA")
         self.btn_busquedas.setMinimumHeight(70)
         self.btn_busquedas.setCursor(Qt.PointingHandCursor)
         self.btn_busquedas.setStyleSheet("""
@@ -73,7 +73,7 @@ class VentanaPrincipal(QMainWindow):
         layout.addWidget(self.btn_busquedas)
 
         # Botón de Grafos
-        self.btn_grafos = QPushButton("📊  ALGORITMOS DE GRAFOS")
+        self.btn_grafos = QPushButton("ALGORITMOS DE GRAFOS")
         self.btn_grafos.setMinimumHeight(70)
         self.btn_grafos.setCursor(Qt.PointingHandCursor)
         self.btn_grafos.setStyleSheet("""
@@ -99,7 +99,7 @@ class VentanaPrincipal(QMainWindow):
         layout.addWidget(self.btn_grafos)
 
         # Botón Salir
-        self.btn_salir = QPushButton("🚪  SALIR")
+        self.btn_salir = QPushButton("SALIR")
         self.btn_salir.setMinimumHeight(70)
         self.btn_salir.setCursor(Qt.PointingHandCursor)
         self.btn_salir.setStyleSheet("""
@@ -127,7 +127,7 @@ class VentanaPrincipal(QMainWindow):
         layout.addStretch()
 
         # Créditos
-        creditos = QLabel("Ciencias de la Computación II")
+        creditos = QLabel("Universidad Distrital Francisco José de Caldas")
         creditos.setFont(QFont("Arial", 10))
         creditos.setAlignment(Qt.AlignCenter)
         creditos.setStyleSheet("color: #6699cc; margin-top: 20px;")

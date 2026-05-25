@@ -12,10 +12,10 @@ from algoritmos.funcion_mod import DialogoClave
 
 
 class FusionVerticeWindow(QMainWindow):
-    def __init__(self, volver_a_grafos, volver_a_principal):
+    def __init__(self, callback_grafos, callback_principal):
         super().__init__()
-        self.volver_a_grafos = volver_a_grafos
-        self.volver_a_principal = volver_a_principal
+        self.callback_grafos = callback_grafos       # callback para volver a ventana de grafos
+        self.callback_principal = callback_principal
 
         self.grafo = GrafoController()
 
@@ -132,7 +132,7 @@ class FusionVerticeWindow(QMainWindow):
         sel2.addWidget(self.combo_v2)
         right_layout.addLayout(sel2)
 
-        btn_fusionar = QPushButton("🔗 Fusionar")
+        btn_fusionar = QPushButton("Fusionar")
         btn_fusionar.setStyleSheet(self._button_style("#9c724a", "white"))
         btn_fusionar.clicked.connect(self.fusionar_vertices)
         right_layout.addWidget(btn_fusionar)
@@ -183,6 +183,14 @@ class FusionVerticeWindow(QMainWindow):
         main_layout.addWidget(scroll)
 
         self.actualizar_combos()  # Inicializar combos vacíos
+
+    def volver_a_grafos(self):
+        self.close()
+        self.callback_grafos()
+
+    def volver_a_principal(self):
+        self.close()
+        self.callback_principal()
 
     # Estilos
     def _button_style(self, bg_color, text_color):

@@ -12,10 +12,10 @@ from algoritmos.funcion_mod import DialogoClave
 
 
 class GrafoLineaWindow(QMainWindow):
-    def __init__(self, volver_a_grafos, volver_a_principal):
+    def __init__(self, callback_grafos, callback_principal):
         super().__init__()
-        self.volver_a_grafos = volver_a_grafos
-        self.volver_a_principal = volver_a_principal
+        self.callback_grafos = callback_grafos       # callback para volver a ventana de grafos
+        self.callback_principal = callback_principal # callback para volver a principal
 
         self.grafo = GrafoController()  # grafo original
 
@@ -165,6 +165,14 @@ class GrafoLineaWindow(QMainWindow):
 
         scroll.setWidget(container)
         main_layout.addWidget(scroll)
+
+    def volver_a_grafos(self):
+        self.close()
+        self.callback_grafos()
+
+    def volver_a_principal(self):
+        self.close()
+        self.callback_principal()
 
     # ========== Estilos ==========
     def _button_style(self, bg_color, text_color):

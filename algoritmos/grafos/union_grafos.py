@@ -11,10 +11,10 @@ from algoritmos.grafos.dialogo_arista import DialogoArista
 from algoritmos.funcion_mod import DialogoClave
 
 class UnionGrafosWindow(QMainWindow):
-    def __init__(self, volver_a_grafos, volver_a_principal):
+    def __init__(self, callback_grafos, callback_principal):
         super().__init__()
-        self.volver_a_grafos = volver_a_grafos
-        self.volver_a_principal = volver_a_principal
+        self.callback_grafos = callback_grafos       # callback para volver a ventana de grafos
+        self.callback_principal = callback_principal
 
         self.grafo1 = GrafoController()
         self.grafo2 = GrafoController()
@@ -214,11 +214,11 @@ class UnionGrafosWindow(QMainWindow):
 
     def volver_a_grafos(self):
         self.close()
-        self.volver_a_grafos()
+        self.callback_grafos()
 
     def volver_a_principal(self):
         self.close()
-        self.volver_a_principal()
+        self.callback_principal()
 
     def _button_style(self, bg_color, text_color):
         return f"""
