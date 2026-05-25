@@ -119,8 +119,8 @@ class VentanaGrafos(QWidget):
 
         # Llenar menú de árboles
         arboles = [
-            "Árbol expansión mínima", "Árbol expansión máxima",
-            "Árbol expansión central", "Distancia entre dos árboles"
+            "Árboles de Grafos",          # ← unifica mínima, máxima, distancia, Dijkstra
+            "Distancia entre dos árboles", # ← ya está dentro de Árboles de Grafos, pero si quieres acceso directo
         ]
         for ar in arboles:
             accion = self.menu_arboles.addAction(ar)
@@ -134,7 +134,8 @@ class VentanaGrafos(QWidget):
             "Coloreo de Grafos",
             "Métricas Grafos No Dirigidos",
             "Métricas Grafos Dirigidos",
-            "Paremiento Grafos"
+            "Paremiento Grafos",
+            "Conjuntos Dominantes",
         ]
         for alg in algoritmos:
             accion = self.menu_algoritmos.addAction(alg)
@@ -273,17 +274,18 @@ class VentanaGrafos(QWidget):
             self.ventana_operacion.show()
             self.hide()
             
-        elif nombre == "Árbol expansión mínima":
-            from algoritmos.grafos.arbol_expansion import ArbolExpansionWindow
-            self.ventana_operacion = ArbolExpansionWindow(self.mostrar_ventana_grafos, self.volver_a_principal)
-            self.ventana_operacion.show()
-            self.hide()
-        
-        elif nombre == "Árbol expansión máxima":
-            from algoritmos.grafos.arbol_expansion_maxima import ArbolExpansionMaximaWindow
-            self.ventana_operacion = ArbolExpansionMaximaWindow(self.mostrar_ventana_grafos, self.volver_a_principal)
-            self.ventana_operacion.show()
-            self.hide()
+        elif nombre == "Conjuntos Dominantes":
+            from algoritmos.grafos.conjuntos_dominantes import ConjuntosDominantesWindow
+            self.ventana_operacion = ConjuntosDominantesWindow(
+                self.mostrar_ventana_grafos, self.volver_a_principal)
+            self.ventana_operacion.show(); self.hide()
+            
+        elif nombre in ("Árbol expansión mínima", "Árbol expansión máxima",
+                        "Árboles de Grafos", "Distancia entre dos árboles"):
+            from algoritmos.grafos.grafos_arboles import GrafosArbolesWindow
+            self.ventana_operacion = GrafosArbolesWindow(
+                self.mostrar_ventana_grafos, self.volver_a_principal)
+            self.ventana_operacion.show(); self.hide()
                 
         else:
             QMessageBox.information(self, "En desarrollo", f"La operación '{nombre}' estará disponible próximamente.")

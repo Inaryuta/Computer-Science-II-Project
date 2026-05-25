@@ -111,6 +111,77 @@ def _todos_los_ciclos_simples(n: int, aristas: list[tuple]) -> list[list[int]]:
 
     return ciclos_aristas
 
+def _conjuntos_corte(n: int, aristas: list) -> list[list[int]]:
+    """
+    Conjuntos de corte fundamentales basados en el árbol DFS.
+    Para cada arista del árbol: eliminarla parte el grafo en dos componentes
+    S y V-S. El conjunto de corte es TODAS las aristas del grafo original
+    con un extremo en cada componente.
+    """
+    if n == 0 or not aristas:
+        return []
+
+    from collections import deque
+
+    # Construir árbol DFS
+    adj = [[] for _ in range(n)]
+    for i, (u, v, _) in enumerate(aristas):
+        adj[u].append((v, i))
+        adj[v].append((u, i))
+
+    visitado = [False] * n
+    arbol: list[int] = []          # índices de aristas del árbol
+
+    def dfs(v: int):
+        visitado[v] = True
+        for w, ei in adj[v]:
+            if not visitado[w]:
+                arbol.append(ei)
+                dfs(w)
+
+    dfs(0)
+
+    conjuntos: list[list[int]] = []
+    visto: list[frozenset] = []
+
+    for ei in arbol:
+        u, v, _ = aristas[ei]
+
+        # Árbol sin la arista ei
+        adj_t = [[] for _ in range(n)]
+        for ea in arbol:
+            if ea == ei:
+                continue
+            a, b, _ = aristas[ea]
+            adj_t[a].append(b)
+            adj_t[b].append(a)
+
+        # Componente de u en el árbol reducido
+        comp_u: set[int] = set()
+        q = deque([u])
+        while q:
+            cur = q.popleft()
+            if cur in comp_u:
+                continue
+            comp_u.add(cur)
+            for nb in adj_t[cur]:
+                if nb not in comp_u:
+                    q.append(nb)
+
+        comp_v = set(range(n)) - comp_u
+
+        # Todas las aristas originales que cruzan el corte
+        corte = [
+            j for j, (a, b, _) in enumerate(aristas)
+            if (a in comp_u and b in comp_v) or (a in comp_v and b in comp_u)
+        ]
+
+        clave = frozenset(corte)
+        if corte and clave not in visto:
+            visto.append(clave)
+            conjuntos.append(corte)
+
+    return conjuntos
 
 # ══════════════════════════════════════════════════════════════════════
 #  Paleta para colorear circuitos
@@ -133,7 +204,9 @@ class MetricasGrafoWindow(QMainWindow):
         self.controller = GrafoController()
         self._ciclos: list[list[int]] = []   # lista de ciclos (índices de arista)
         self._ciclo_actual: int = 0
-
+        self._cortes: list[list[int]] = []
+        self._corte_actual: int = 0
+        
         self.setWindowTitle("Métricas Grafos No Dirigidos")
         self.setGeometry(100, 50, 1500, 800)
         self.setStyleSheet("background-color: #f0f8ff;")
@@ -245,6 +318,7 @@ class MetricasGrafoWindow(QMainWindow):
         self.combo_op = QComboBox()
         self.combo_op.addItem("Matriz de adyacencia y de incidencia", "adyacencia_incidencia")
         self.combo_op.addItem("Matriz de circuitos", "circuitos")
+        self.combo_op.addItem("Conjuntos de corte", "cortes")
         self.combo_op.setStyleSheet(self._input_style())
         lay.addWidget(self.combo_op)
         br = QPushButton("▶ Calcular")
@@ -253,11 +327,17 @@ class MetricasGrafoWindow(QMainWindow):
         lay.addWidget(br)
 
         # ── Botón ver otro circuito (oculto por defecto) ───────────────
-        self.btn_otro = QPushButton("🔄 Ver otro circuito")
+        self.btn_otro = QPushButton("Ver otro circuito")
         self.btn_otro.setStyleSheet(self._btn("#8e44ad", "white"))
         self.btn_otro.clicked.connect(self._ver_otro_circuito)
         self.btn_otro.setVisible(False)
         lay.addWidget(self.btn_otro)
+        
+        self.btn_otro_corte = QPushButton("Ver otro corte")
+        self.btn_otro_corte.setStyleSheet(self._btn("#e67e22", "white"))
+        self.btn_otro_corte.clicked.connect(self._ver_otro_corte)
+        self.btn_otro_corte.setVisible(False)
+        lay.addWidget(self.btn_otro_corte)
 
         # ── Área de resultados ────────────────────────────────────────
         lay.addWidget(self._sep())
@@ -340,14 +420,17 @@ class MetricasGrafoWindow(QMainWindow):
         op = self.combo_op.currentData()
         self._limpiar_matrices()
         self.btn_otro.setVisible(False)
+        self.btn_otro_corte.setVisible(False) 
         self.lbl_resultado.setVisible(False)
 
         if op == "adyacencia_incidencia":
             self._mostrar_incidencia()          # vértices × aristas   
             self._mostrar_adyacencia()          # vértices × vértices
             self._mostrar_adyacencia_aristas()  # aristas  × aristas  ← nueva
-        else:
+        elif op == "circuitos":
             self._calcular_circuitos()
+        elif op == "cortes":                     # ← agregar este bloque
+            self._calcular_cortes()
 
     # ──────────────────────────────────────────────────────────────────
     #  Matrices
@@ -653,6 +736,212 @@ class MetricasGrafoWindow(QMainWindow):
         lbl.setAlignment(Qt.AlignCenter)
         lay.addWidget(lbl)
         return frame
+
+    def _conjuntos_corte(n: int, aristas: list) -> list[list[int]]:
+        """
+        Conjuntos de corte fundamentales basados en el árbol DFS.
+        Para cada arista del árbol: eliminarla parte el grafo en dos componentes
+        S y V-S. El conjunto de corte es TODAS las aristas del grafo original
+        con un extremo en cada componente.
+        """
+        if n == 0 or not aristas:
+            return []
+
+        from collections import deque
+
+        # Construir árbol DFS
+        adj = [[] for _ in range(n)]
+        for i, (u, v, _) in enumerate(aristas):
+            adj[u].append((v, i))
+            adj[v].append((u, i))
+
+        visitado = [False] * n
+        arbol: list[int] = []          # índices de aristas del árbol
+
+        def dfs(v: int):
+            visitado[v] = True
+            for w, ei in adj[v]:
+                if not visitado[w]:
+                    arbol.append(ei)
+                    dfs(w)
+
+        dfs(0)
+
+        conjuntos: list[list[int]] = []
+        visto: list[frozenset] = []
+
+        for ei in arbol:
+            u, v, _ = aristas[ei]
+
+            # Árbol sin la arista ei
+            adj_t = [[] for _ in range(n)]
+            for ea in arbol:
+                if ea == ei:
+                    continue
+                a, b, _ = aristas[ea]
+                adj_t[a].append(b)
+                adj_t[b].append(a)
+
+            # Componente de u en el árbol reducido
+            comp_u: set[int] = set()
+            q = deque([u])
+            while q:
+                cur = q.popleft()
+                if cur in comp_u:
+                    continue
+                comp_u.add(cur)
+                for nb in adj_t[cur]:
+                    if nb not in comp_u:
+                        q.append(nb)
+
+            comp_v = set(range(n)) - comp_u
+
+            # Todas las aristas originales que cruzan el corte
+            corte = [
+                j for j, (a, b, _) in enumerate(aristas)
+                if (a in comp_u and b in comp_v) or (a in comp_v and b in comp_u)
+            ]
+
+            clave = frozenset(corte)
+            if corte and clave not in visto:
+                visto.append(clave)
+                conjuntos.append(corte)
+
+        return conjuntos
+
+    def _calcular_cortes(self):
+        n       = self.controller._vertices
+        aristas = self.controller._aristas
+        etiq    = self.controller._etiquetas
+        m       = len(aristas)
+
+        if m == 0:
+            DialogoClave(0, "Info", "mensaje", self, "El grafo no tiene aristas.").exec()
+            return
+
+        self._cortes = _conjuntos_corte(n, aristas)
+
+        if not self._cortes:
+            DialogoClave(0, "Info", "mensaje", self,
+                        "No se encontraron conjuntos de corte (¿el grafo es conexo?).").exec()
+            return
+
+        self._corte_actual = 0
+
+        # ── Lista de conjuntos de corte ───────────────────────────────────
+        frame_lista = self._frame_titulo(f"Conjuntos de corte ({len(self._cortes)})")
+        for k, corte in enumerate(self._cortes):
+            nombres = []
+            for ei in corte:
+                u, v, _ = aristas[ei]
+                nombres.append(
+                    f"e{ei+1}({etiq.get(u, str(u+1))}-{etiq.get(v, str(v+1))})"
+                )
+            lbl = QLabel(f"K{k+1} = {{ {',  '.join(nombres)} }}")
+            lbl.setStyleSheet("color: #003366; padding: 3px 6px;")
+            lbl.setWordWrap(True)
+            frame_lista.layout().addWidget(lbl)
+        self.matrices_layout.addWidget(frame_lista)
+
+        # ── Matriz de cortes  (cortes × aristas) ─────────────────────────
+        nc = len(self._cortes)
+        frame_mat = self._frame_titulo(
+            f"Matriz de Cortes  ({nc} cortes × {m} aristas)"
+        )
+        from PySide6.QtWidgets import QGridLayout
+        grid = QGridLayout(); grid.setSpacing(2)
+
+        for j in range(m):
+            u, v, _ = aristas[j]
+            lbl = QLabel(
+                f"e{j+1}\n({etiq.get(u,str(u+1))}-{etiq.get(v,str(v+1))})"
+            )
+            lbl.setStyleSheet(self._cell_header())
+            lbl.setAlignment(Qt.AlignCenter); lbl.setWordWrap(True)
+            grid.addWidget(lbl, 0, j+1)
+
+        for i, corte in enumerate(self._cortes):
+            lbl = QLabel(f"K{i+1}")
+            lbl.setStyleSheet(self._cell_header()); lbl.setAlignment(Qt.AlignCenter)
+            grid.addWidget(lbl, i+1, 0)
+            corte_set = set(corte)
+            for j in range(m):
+                val = 1 if j in corte_set else 0
+                c   = QLabel(str(val)); c.setAlignment(Qt.AlignCenter)
+                c.setMinimumSize(44, 36)
+                c.setStyleSheet(
+                    self._cell_highlight() if val else self._cell_normal()
+                )
+                grid.addWidget(c, i+1, j+1)
+
+        inner = QWidget(); inner.setLayout(grid)
+        frame_mat.layout().addWidget(inner)
+        self.matrices_layout.addWidget(frame_mat)
+
+        # Resultado y botón
+        self.lbl_resultado.setText(
+            f"Mostrando corte K{self._corte_actual + 1} de {len(self._cortes)}"
+        )
+        self.lbl_resultado.setVisible(True)
+        self.btn_otro_corte.setVisible(True)
+        self._colorear_corte(self._corte_actual)
+
+    def _colorear_corte(self, idx: int):
+        """
+        Colorea las aristas del corte en rojo y las dos componentes
+        de vértices en colores distintos.
+        """
+        from collections import deque
+        aristas = self.controller._aristas
+        n       = self.controller._vertices
+        datos   = self.controller.obtener_datos()
+
+        corte_set = set(self._cortes[idx])
+
+        # BFS ignorando las aristas del corte → dos componentes
+        adj = [[] for _ in range(n)]
+        for i, (u, v, _) in enumerate(aristas):
+            if i not in corte_set and u != v:
+                adj[u].append(v); adj[v].append(u)
+
+        comp = [-1] * n
+        c_id = 0
+        for s in range(n):
+            if comp[s] == -1:
+                q = deque([s])
+                while q:
+                    cur = q.popleft()
+                    if comp[cur] != -1:
+                        continue
+                    comp[cur] = c_id
+                    for nb in adj[cur]:
+                        if comp[nb] == -1:
+                            q.append(nb)
+                c_id += 1
+
+        PALETA_COMP = ["#4d9de0", "#f39c12", "#27ae60", "#9b59b6", "#e74c3c"]
+        colores_v = {v: PALETA_COMP[comp[v] % len(PALETA_COMP)] for v in range(n)}
+        colores_a = {ei: "#e74c3c" for ei in corte_set}
+
+        self.visual.set_grafo(
+            n, datos["aristas"], datos["etiquetas"], datos["pesos"]
+        )
+        if hasattr(self.visual, "set_colores"):
+            self.visual.set_colores(
+                colores_vertices=colores_v,
+                colores_aristas=colores_a,
+            )
+
+        self.lbl_resultado.setText(
+            f"Mostrando corte K{idx + 1} de {len(self._cortes)}"
+        )
+
+
+    def _ver_otro_corte(self):
+        if not self._cortes:
+            return
+        self._corte_actual = (self._corte_actual + 1) % len(self._cortes)
+        self._colorear_corte(self._corte_actual)
 
     def _cerrar_grafos(self):
         self.close(); self.volver_a_grafos()
