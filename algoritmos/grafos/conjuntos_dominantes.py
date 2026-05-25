@@ -327,7 +327,10 @@ class ConjuntosDominantesWindow(QMainWindow):
             color = COLORES_TIPO[tipo]
             fila = QHBoxLayout()
             dot = QLabel("●"); dot.setStyleSheet(f"color:{color};font-size:20px;")
-            lbl = QLabel(label.split("  ")[1].strip()); lbl.setStyleSheet("color:#003366;font-size:11px;")
+            # Extrae el texto después del emoji (si existe), sino usa todo el label
+            parts = label.split("  ", 1)
+            nombre = parts[1].strip() if len(parts) > 1 else label
+            lbl = QLabel(nombre)
             fila.addWidget(dot); fila.addWidget(lbl); fila.addStretch()
             lay.addLayout(fila)
 
