@@ -1,12 +1,15 @@
 """
 algoritmos/grafos/grafos_arboles.py
 Operaciones con árboles de grafos:
-  • Árbol de expansión mínima  (Kruskal)
-  • Árbol de expansión máxima  (Kruskal invertido)
+  • Árbol de expansión mínima (Kruskal)
+  • Árbol de expansión máxima (Kruskal invertido)
   • Distancia entre dos árboles (diferencia simétrica de aristas)
-  • Camino mínimo              (Dijkstra)
+  • Centro / Bicentro
+  • Radio
+  • Cintura
 """
 import math
+from collections import deque
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QSpinBox, QFrame, QFileDialog, QComboBox,
@@ -48,61 +51,24 @@ def _kruskal(n: int, aristas: list, maximo: bool = False) -> tuple[list[int], li
         rx, ry = find(x), find(y)
         if rx == ry:
             return False
-        if rank[rx] < rank[ry]:  parent[rx] = ry
-        elif rank[rx] > rank[ry]: parent[ry] = rx
-        else:                     parent[ry] = rx; rank[rx] += 1
+        if rank[rx] < rank[ry]:
+            parent[rx] = ry
+        elif rank[rx] > rank[ry]:
+            parent[ry] = rx
+        else:
+            parent[ry] = rx
+            rank[rx] += 1
         return True
 
     ramas, cuerdas = [], []
     for p, u, v, i in items:
-        if u == v:         cuerdas.append(i)
-        elif union(u, v):  ramas.append(i)
-        else:              cuerdas.append(i)
+        if u == v:
+            cuerdas.append(i)
+        elif union(u, v):
+            ramas.append(i)
+        else:
+            cuerdas.append(i)
     return ramas, cuerdas
-
-
-def _dijkstra(n: int, aristas: list, origen: int) -> tuple[list[float], list[int]]:
-    """
-    Dijkstra desde `origen`.
-    Devuelve (distancias, predecesores).
-    predecesores[v] = índice del vértice anterior en el camino más corto.
-    """
-    INF  = math.inf
-    dist = [INF] * n
-    prev = [-1]  * n
-    dist[origen] = 0
-    visitado = [False] * n
-
-    adj: list[list[tuple]] = [[] for _ in range(n)]
-    for u, v, p in aristas:
-        w = p if p > 0 else 1
-        adj[u].append((v, w))
-        if u != v:
-            adj[v].append((u, w))
-
-    for _ in range(n):
-        # Vértice no visitado con menor distancia
-        u = min((i for i in range(n) if not visitado[i]), key=lambda i: dist[i], default=-1)
-        if u == -1 or dist[u] == INF:
-            break
-        visitado[u] = True
-        for v, w in adj[u]:
-            if dist[u] + w < dist[v]:
-                dist[v] = dist[u] + w
-                prev[v] = u
-
-    return dist, prev
-
-
-def _reconstruir_camino(prev: list[int], destino: int) -> list[int]:
-    """Devuelve la lista de vértices del camino mínimo (vacío si no hay)."""
-    camino = []
-    cur    = destino
-    while cur != -1:
-        camino.append(cur)
-        cur = prev[cur]
-    camino.reverse()
-    return camino if len(camino) > 1 or (len(camino) == 1 and camino[0] == destino) else []
 
 
 def _distancia_arboles(
@@ -125,6 +91,75 @@ def _distancia_arboles(
     comunes = set1 & set2
     dist    = len(solo1)        # = len(solo2) si son spanning trees del mismo grafo
     return dist, solo1, solo2, comunes
+
+
+# ---------- Centro, radio, cintura ----------
+def _matriz_distancias(n: int, aristas: list) -> list[list[float]]:
+    """Matriz de distancias mínimas (Floyd-Warshall) para grafos pequeños."""
+    INF = float('inf')
+    dist = [[INF]*n for _ in range(n)]
+    for i in range(n):
+        dist[i][i] = 0
+    for u, v, p in aristas:
+        if u != v:
+            w = p if p > 0 else 1
+            dist[u][v] = min(dist[u][v], w)
+            dist[v][u] = min(dist[v][u], w)
+    for k in range(n):
+        for i in range(n):
+            for j in range(n):
+                if dist[i][k] + dist[k][j] < dist[i][j]:
+                    dist[i][j] = dist[i][k] + dist[k][j]
+    return dist
+
+
+def _centro_bicentro(n: int, aristas: list) -> tuple[list[int], int]:
+    """
+    Calcula el centro (vértices con excentricidad mínima) y el radio.
+    Retorna (centro_lista, radio).
+    """
+    if n == 0:
+        return [], 0
+    dist = _matriz_distancias(n, aristas)
+    excentricidad = [max(dist[i]) for i in range(n)]
+    radio = min(excentricidad)
+    centro = [i for i, e in enumerate(excentricidad) if e == radio]
+    return centro, radio
+
+
+def _cintura(n: int, aristas: list) -> int:
+    """Longitud del ciclo más corto (girth). Retorna INF si es acíclico."""
+    if n == 0:
+        return float('inf')
+    INF = float('inf')
+    # Grafo no dirigido, calcular ciclo más corto mediante BFS
+    adj = [[] for _ in range(n)]
+    for u, v, p in aristas:
+        if u != v:
+            adj[u].append(v)
+            adj[v].append(u)
+    mejor = INF
+    # BFS desde cada vértice
+    for s in range(n):
+        dist = [-1]*n
+        parent = [-1]*n
+        dist[s] = 0
+        q = deque([s])
+        while q and mejor > 2:  # si ya tenemos ciclo de longitud 3 no puede ser menor
+            u = q.popleft()
+            for v in adj[u]:
+                if v == parent[u]:
+                    continue
+                if dist[v] == -1:
+                    dist[v] = dist[u] + 1
+                    parent[v] = u
+                    q.append(v)
+                else:
+                    # Ciclo encontrado
+                    ciclo = dist[u] + dist[v] + 1
+                    if ciclo < mejor:
+                        mejor = ciclo
+    return mejor if mejor != INF else INF
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -282,12 +317,13 @@ class GrafosArbolesWindow(QMainWindow):
         self.combo_op.addItem("Árbol expansión mínima",   "min")
         self.combo_op.addItem("Árbol expansión máxima",   "max")
         self.combo_op.addItem("Distancia entre árboles",  "dist")
-        self.combo_op.addItem("Camino mínimo (Dijkstra)", "dijkstra")
+        self.combo_op.addItem("Centro / Bicentro",        "centro")
+        self.combo_op.addItem("Radio",                    "radio")
+        self.combo_op.addItem("Cintura",          "cintura")
         self.combo_op.setStyleSheet(self._input_style())
-        self.combo_op.currentIndexChanged.connect(self._on_op_changed)
         lay.addWidget(self.combo_op)
 
-        # Sobre qué grafo aplicar
+        # Sobre qué grafo aplicar (solo para operaciones que requieren uno)
         lay.addWidget(self._lbl("Aplicar sobre:", "#1b5e20"))
         self.combo_grafo = QComboBox()
         self.combo_grafo.addItem("Grafo 1", 1)
@@ -295,21 +331,6 @@ class GrafosArbolesWindow(QMainWindow):
         self.combo_grafo.addItem("Ambos (solo distancia)", 0)
         self.combo_grafo.setStyleSheet(self._input_style())
         lay.addWidget(self.combo_grafo)
-
-        # Controles extras para Dijkstra
-        self.frame_dijkstra = QFrame()
-        self.frame_dijkstra.setStyleSheet("border:none;")
-        dlay = QVBoxLayout(self.frame_dijkstra)
-        dlay.setContentsMargins(0, 0, 0, 0)
-        dlay.setSpacing(4)
-        dlay.addWidget(self._lbl("Origen:", "#1b5e20"))
-        self.combo_origen = QComboBox(); self.combo_origen.setStyleSheet(self._input_style())
-        dlay.addWidget(self.combo_origen)
-        dlay.addWidget(self._lbl("Destino:", "#1b5e20"))
-        self.combo_destino = QComboBox(); self.combo_destino.setStyleSheet(self._input_style())
-        dlay.addWidget(self.combo_destino)
-        self.frame_dijkstra.setVisible(False)
-        lay.addWidget(self.frame_dijkstra)
 
         lay.addWidget(self._sep())
         btn_calc = QPushButton("▶ Calcular")
@@ -368,7 +389,6 @@ class GrafosArbolesWindow(QMainWindow):
         ctrl.set_vertices(spin.value())
         self._actualizar_combos(num)
         self._limpiar_resultados()
-        self._sincronizar_combos_dijkstra()
 
     def _agregar_arista(self, num: int):
         ctrl = self.ctrl1 if num == 1 else self.ctrl2
@@ -414,7 +434,6 @@ class GrafosArbolesWindow(QMainWindow):
                 spin.setValue(ctrl._vertices)
                 self._actualizar_combos(num)
                 self._limpiar_resultados()
-                self._sincronizar_combos_dijkstra()
                 DialogoClave(0, "Éxito", "mensaje", self, "Cargado.").exec()
             except Exception as e:
                 DialogoClave(0, "Error", "mensaje", self, f"Error: {e}").exec()
@@ -428,15 +447,18 @@ class GrafosArbolesWindow(QMainWindow):
 
         if op == "dist":
             self._op_distancia()
-        elif op == "dijkstra":
-            self._op_dijkstra(sobre if sobre in (1, 2) else 1)
         elif op in ("min", "max"):
             if sobre == 0:
-                # Aplicar a ambos
                 self._op_kruskal(1, op)
                 self._op_kruskal(2, op)
             else:
                 self._op_kruskal(sobre, op)
+        elif op == "centro":
+            self._op_centro(sobre if sobre in (1,2) else 1)
+        elif op == "radio":
+            self._op_radio(sobre if sobre in (1,2) else 1)
+        elif op == "cintura":
+            self._op_cintura(sobre if sobre in (1,2) else 1)
 
     # ── Kruskal ───────────────────────────────────────────────────────
     def _op_kruskal(self, num: int, modo: str):
@@ -569,101 +591,88 @@ class GrafosArbolesWindow(QMainWindow):
             f"<b>Aristas comunes:</b><br>{com_str}"
         )
 
-    # ── Dijkstra ──────────────────────────────────────────────────────
-    def _op_dijkstra(self, num: int):
+    # ── Centro / Bicentro ────────────────────────────────────────────
+    def _op_centro(self, num: int):
         ctrl = self.ctrl1 if num == 1 else self.ctrl2
-        vis  = self.vis1  if num == 1 else self.vis2
         n    = ctrl._vertices
         raw  = ctrl._aristas
         etiq = ctrl._etiquetas
 
         if n == 0:
-            DialogoClave(0, "Error", "mensaje", self, f"Grafo {num} vacío.").exec(); return
-
-        origen  = self.combo_origen.currentData()
-        destino = self.combo_destino.currentData()
-
-        if origen is None or destino is None:
             DialogoClave(0, "Error", "mensaje", self,
-                         "Selecciona origen y destino.").exec(); return
+                         f"Grafo {num} vacío.").exec(); return
 
-        dist, prev = _dijkstra(n, raw, origen)
-        camino     = _reconstruir_camino(prev, destino)
+        centro, radio = _centro_bicentro(n, raw)
+        if not centro:
+            DialogoClave(0, "Error", "mensaje", self, "No se pudo calcular el centro.").exec(); return
 
-        # Aristas del camino
-        camino_aristas: set[int] = set()
-        for k in range(len(camino) - 1):
-            u, v = camino[k], camino[k+1]
-            for i, (a, b, _) in enumerate(raw):
-                if (a == u and b == v) or (a == v and b == u):
-                    camino_aristas.add(i); break
+        centro_str = ", ".join(etiq.get(v, str(v+1)) for v in centro)
+        tipo_centro = "Bicentro" if len(centro) == 2 else "Centro"
 
-        # Colorear sobre el visualizador del grafo original
+        # Visualización: resaltar los vértices del centro en el grafo original
         datos = ctrl.obtener_datos()
-        # Usamos VisualizadorGrafoColoreable en vis_r1
-        self.vis_r1.titulo_label.setText(f"Camino mínimo G{num}")
+        self.vis_r1.titulo_label.setText(f"{tipo_centro} - Grafo {num}")
         self.vis_r1.set_grafo(
             n, datos["aristas"], etiq, datos["pesos"],
-            colores_aristas={i: "#27ae60" for i in camino_aristas},
-            colores_vertices={v: "#e74c3c" if v in (origen, destino) else "#4d9de0"
-                              for v in range(n)},
+            colores_vertices={v: "#e74c3c" for v in centro},
         )
-        # Resultado B: distancias a todos los vértices
-        self.vis_r2.titulo_label.setText(f"Grafo G{num} (todas las dist.)")
-        self.vis_r2.set_grafo(n, datos["aristas"], etiq, datos["pesos"])
-
-        # Info
-        INF = math.inf
-        dist_str = "".join(
-            f"  {etiq.get(origen,str(origen+1))} → "
-            f"{etiq.get(v,str(v+1))}: "
-            f"{'∞' if dist[v]==INF else dist[v]}<br>"
-            for v in range(n)
-        )
-        if camino:
-            cam_str = " → ".join(etiq.get(v, str(v+1)) for v in camino)
-            d_val   = dist[destino]
-            d_txt   = "∞" if d_val == INF else str(d_val)
-        else:
-            cam_str = "No hay camino"
-            d_txt   = "∞"
+        self.vis_r2.set_grafo(0, [], {})  # limpiar resultado B
 
         self.texto_info.setHtml(
-            f"<b>Dijkstra — Grafo {num}</b><br><br>"
-            f"<b>Origen:</b> {etiq.get(origen,str(origen+1))}<br>"
-            f"<b>Destino:</b> {etiq.get(destino,str(destino+1))}<br>"
-            f"<b>Camino:</b> {cam_str}<br>"
-            f"<b>Distancia:</b> {d_txt}<br><br>"
-            f"<b>Distancias desde {etiq.get(origen,str(origen+1))}:</b><br>"
-            f"{dist_str}"
+            f"<b>Centro del Grafo {num}</b><br><br>"
+            f"<b>{tipo_centro}:</b> {centro_str}<br>"
+            f"<b>Radio:</b> {radio}<br>"
+            f"<i>(Vértices resaltados en rojo)</i>"
         )
+
+    # ── Radio ─────────────────────────────────────────────────────────
+    def _op_radio(self, num: int):
+        ctrl = self.ctrl1 if num == 1 else self.ctrl2
+        n    = ctrl._vertices
+        raw  = ctrl._aristas
+
+        if n == 0:
+            DialogoClave(0, "Error", "mensaje", self,
+                         f"Grafo {num} vacío.").exec(); return
+
+        _, radio = _centro_bicentro(n, raw)
+
+        self.texto_info.setHtml(
+            f"<b>Radio del Grafo {num}</b><br><br>"
+            f"<b>Radio (excentricidad mínima):</b> {radio}<br>"
+            f"<i>Para calcular el centro, use la operación 'Centro / Bicentro'.</i>"
+        )
+        # Opcional: se puede resaltar algo, pero solo mostramos el valor
+        self.vis_r1.set_grafo(0, [], {})
+        self.vis_r2.set_grafo(0, [], {})
+
+    # ── Cintura (girth) ───────────────────────────────────────────────
+    def _op_cintura(self, num: int):
+        ctrl = self.ctrl1 if num == 1 else self.ctrl2
+        n    = ctrl._vertices
+        raw  = ctrl._aristas
+
+        if n == 0:
+            DialogoClave(0, "Error", "mensaje", self,
+                         f"Grafo {num} vacío.").exec(); return
+
+        girth = _cintura(n, raw)
+        if girth == float('inf'):
+            girth_str = "∞ (el grafo es acíclico)"
+        else:
+            girth_str = str(girth)
+
+        self.texto_info.setHtml(
+            f"<b>Cintura del Grafo {num}</b><br><br>"
+            f"<b>Longitud del ciclo más corto:</b> {girth_str}<br>"
+            f"<i>(Ciclo mínimo: {girth} aristas)</i>"
+        )
+        self.vis_r1.set_grafo(0, [], {})
+        self.vis_r2.set_grafo(0, [], {})
 
     # ──────────────────────────────────────────────────────────────────
     #  Helpers
     # ──────────────────────────────────────────────────────────────────
-    def _on_op_changed(self):
-        op = self.combo_op.currentData()
-        self.frame_dijkstra.setVisible(op == "dijkstra")
-        # Distancia siempre usa ambos grafos
-        if op == "dist":
-            for i in range(self.combo_grafo.count()):
-                if self.combo_grafo.itemData(i) == 0:
-                    self.combo_grafo.setCurrentIndex(i)
-            self.combo_grafo.setEnabled(False)
-        else:
-            self.combo_grafo.setEnabled(True)
-
-    def _sincronizar_combos_dijkstra(self):
-        """Llena los combos de origen/destino con los vértices del grafo seleccionado."""
-        num  = self.combo_grafo.currentData() or 1
-        ctrl = self.ctrl1 if num != 2 else self.ctrl2
-        n    = ctrl._vertices
-        etiq = ctrl._etiquetas
-        for combo in (self.combo_origen, self.combo_destino):
-            combo.clear()
-            for i in range(n):
-                combo.addItem(etiq.get(i, str(i+1)), i)
-
     def _actualizar_visual(self, num: int):
         ctrl = self.ctrl1 if num == 1 else self.ctrl2
         vis  = self.vis1  if num == 1 else self.vis2

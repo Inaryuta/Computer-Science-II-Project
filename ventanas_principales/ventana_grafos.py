@@ -134,7 +134,7 @@ class VentanaGrafos(QWidget):
             "Coloreo de Grafos",
             "Métricas Grafos No Dirigidos",
             "Métricas Grafos Dirigidos",
-            "Paremiento Grafos",
+            "Pareamiento Grafos",
             "Conjuntos Dominantes",
         ]
         for alg in algoritmos:
