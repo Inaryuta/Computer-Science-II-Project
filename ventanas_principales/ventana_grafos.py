@@ -266,7 +266,7 @@ class VentanaGrafos(QWidget):
             self.ventana_operacion.show()
             self.hide()
         
-        elif nombre == "Paremiento Grafos":
+        elif nombre == "Pareamiento Grafos":
             from algoritmos.grafos.pareamiento_grafo import PareamientoGrafoWindow
             self.ventana_operacion = PareamientoGrafoWindow(
                 self.mostrar_ventana_grafos,
