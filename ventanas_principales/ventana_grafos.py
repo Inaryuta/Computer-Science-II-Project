@@ -128,6 +128,7 @@ class VentanaGrafos(QWidget):
 
         # Llenar menú de algoritmos
         algoritmos = [
+            "Función Ordinal",
             "Bellman-Ford",
             "Dijkstra",
             "Floyd-Warshall",
@@ -286,7 +287,13 @@ class VentanaGrafos(QWidget):
             self.ventana_operacion = GrafosArbolesWindow(
                 self.mostrar_ventana_grafos, self.volver_a_principal)
             self.ventana_operacion.show(); self.hide()
-                
+        
+        elif nombre == "Función Ordinal":
+            from algoritmos.grafos.funcion_ordinal import FuncionOrdinalWindow
+            self.ventana_operacion = FuncionOrdinalWindow(
+                self.mostrar_ventana_grafos, self.volver_a_principal)
+            self.ventana_operacion.show(); self.hide()
+                        
         else:
             QMessageBox.information(self, "En desarrollo", f"La operación '{nombre}' estará disponible próximamente.")
         
